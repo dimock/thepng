@@ -1,7 +1,7 @@
 #include "png_imager.h"
 #include "helpers.h"
 #include <iomanip>
-
+#include <math.h>
 
 int _tmain(int argc, TCHAR **argv)
 {
@@ -33,18 +33,32 @@ int _tmain(int argc, TCHAR **argv)
 	//	return -1;
 	//}
 
-  Image part;
-  if ( !image.take_part(328, 536, 100, part) )
-  {
-    std::cout << _T("can't take part of the image") << std::endl;
-    return -1;
-  }
+  //Image part;
+  //if ( !image.take_part(286, 494, 142, part) )
+  //{
+  //  std::cout << _T("can't take part of the image") << std::endl;
+  //  return -1;
+  //}
 
-	if ( !PngImager::write(argv[2], part) )
-	{
-		std::tcout << _T("unable to write target image: ") << argv[2] << std::endl;
-		return -1;
-	}
+  int side = sqrt( (double)(image.width()*image.width()+image.height()*image.height()) );
+  Image rotated(side, side, image.bytes_pp());
+
+  for (int alpha = 0, i = 0; alpha < 360; alpha += 10, ++i)
+  {
+    TCHAR dst_name[256];
+    _stprintf(dst_name, _T("%s_%02d.png"), argv[2], i);
+    image.rotate(3.14*alpha/180.0, rotated);
+
+	  if ( !PngImager::write(dst_name, rotated) )
+	  {
+		  std::tcout << _T("unable to write target image: ") << argv[2] << std::endl;
+		  return -1;
+	  }
+
+    std::tcout << dst_name << std::endl;
+
+    rotated.clear_data();
+  }
 
   double dt = tt.getTimeMs();
 

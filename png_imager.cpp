@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <math.h>
 
 //#define PNG_DEBUG 3
 #include <png.h>
@@ -271,7 +272,54 @@ bool Image::take_part(int x, int y, int npixels, Image & target_image) const
   return true;
 }
 
-bool Image::rotate(double angle)
+void Image::rotate(double angle, Image & target_image) const
 {
-  return false;
+  const unsigned char * src_buffer = buffer();
+  unsigned char * dst_buffer = target_image.buffer();
+  double sina = sin(-angle);
+  double cosa = cos(-angle);
+  int xcenter = target_image.width_/2;
+  int ycenter = target_image.height_/2;
+  int src_xcenter = width_/2;
+  int src_ycenter = height_/2;
+
+  for (int y = 0; y < target_image.height_; ++y, dst_buffer += target_image.pitch_)
+  {
+    unsigned char * dst_buf = dst_buffer;
+
+    for (int x = 0; x < target_image.width_; ++x, dst_buf += bytes_pp_)
+    {
+      double dx = cosa*(x-xcenter) - sina*(y-ycenter) + src_xcenter;
+      int xr = (int)(dx);
+      if ( xr < 0 || xr+1 >= width_ )
+        continue;
+
+      double dy = sina*(x-xcenter) + cosa*(y-ycenter) + src_ycenter;
+      int yr = (int)(dy);
+      if ( yr < 0 || yr+1 >= height_ )
+        continue;
+
+      dx -= xr;
+      dy -= yr;
+
+      const unsigned char * src_buf0 = src_buffer + yr*pitch_ + xr*bytes_pp_;
+      const unsigned char * src_buf1 = src_buffer + yr*pitch_ + (xr+1)*bytes_pp_;
+      const unsigned char * src_buf2 = src_buffer + (yr+1)*pitch_ + xr*bytes_pp_;
+      const unsigned char * src_buf3 = src_buffer + (yr+1)*pitch_ + (xr+1)*bytes_pp_;
+
+      for (int i = 0; i< 3; ++i)
+      {
+        dst_buf[i] = src_buf0[i]*(1.0-dx)*(1.0-dy) +
+          src_buf1[i]*dx*(1.0-dy) +
+          src_buf2[i]*(1.0-dx)*dy +
+          src_buf3[i]*dx*dy;
+      }
+    }
+  }
+}
+
+void Image::clear_data()
+{
+  for (size_t i = 0; i < buffer_.size(); ++i)
+    buffer_[i] = 0;
 }

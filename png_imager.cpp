@@ -276,8 +276,8 @@ void Image::rotate(double angle, Image & target_image) const
 {
   const unsigned char * src_buffer = buffer();
   unsigned char * dst_buffer = target_image.buffer();
-  double sina = sin(-angle);
-  double cosa = cos(-angle);
+  double sina = sin(angle);
+  double cosa = cos(angle);
   int xcenter = target_image.width_/2;
   int ycenter = target_image.height_/2;
   int src_xcenter = width_/2;

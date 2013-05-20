@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
+#include <assert.h>
 
 //#define PNG_DEBUG 3
 #include <png.h>
@@ -290,8 +291,8 @@ void Image::rotate(double angle, int translate_x, int translate_y, Image & targe
 	int dst_x0 = -dst_xcenter;
 	int dst_y0 = -dst_ycenter;
 
-	int src_x0 = (dst_x0*cosa - dst_y0*sina + src_xcenter + translate_x) * SCALE;
-	int src_y0 = (dst_x0*sina + dst_y0*cosa + src_ycenter + translate_y) * SCALE;
+	int src_x0 = (dst_x0*cosa - dst_y0*sina + src_xcenter - translate_x) * SCALE;
+	int src_y0 = (dst_x0*sina + dst_y0*cosa + src_ycenter - translate_y) * SCALE;
 
 	int dxx = cosa*SCALE;
 	int dyx = sina*SCALE;
@@ -333,6 +334,48 @@ void Image::rotate(double angle, int translate_x, int translate_y, Image & targe
       }
     }
   }
+}
+
+double Image::calc_deviation(const Image & other) const
+{
+	assert(other.width_ == width_ && other.height_ == height_ && other.bytes_pp_ == bytes_pp_);
+
+	const unsigned char * this_buffer = buffer();
+	const unsigned char * other_buffer = other.buffer();
+
+	long long sum = 0;
+	int pixelsN = 0;
+
+	for (int y = 0; y < height_; ++y, this_buffer += pitch_, other_buffer += pitch_)
+	{
+		const unsigned char * this_buf = this_buffer;
+		const unsigned char * other_buf = other_buffer;
+
+		for (int x = 0; x < width_; ++x, this_buf += bytes_pp_, other_buf += bytes_pp_)
+		{
+			unsigned this_color = *this_buf & 0xffffff;
+			unsigned other_color = *other_buf & 0xffffff;
+
+			// if color is NULL we suppose that pixel unused
+			if ( !this_color || !other_color )
+				continue;
+
+			int dr = this_buf[0] - other_buf[0];
+			int dg = this_buf[1] - other_buf[1];
+			int db = this_buf[2] - other_buf[2];
+
+			sum += dr*dr + dg*dg + db*db;
+			pixelsN++;
+		}
+	}
+
+	if ( 0 == pixelsN )
+		return -1.0;
+
+	double deviation = sqrt((double)sum)/pixelsN;
+	if ( deviation == 0 )
+		return 0;
+	return deviation;
 }
 
 void Image::clear_data()

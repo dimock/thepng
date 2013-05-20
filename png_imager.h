@@ -46,6 +46,9 @@ public:
 	bool scale_xy(int times, Image & target_image) const;
   bool take_part(int x, int y, int npixels, Image & target_image) const;
   void rotate(double angle, int translate_x, int translate_y, Image & target_image) const;
+
+	// it is supposed that images have equal size
+	double calc_deviation(const Image & other) const;
   
   void clear_data();
 

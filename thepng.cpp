@@ -48,17 +48,18 @@ int _tmain(int argc, TCHAR **argv)
   Image rotated(side, side, image.bytes_pp());
 
   for (int alpha = 0, i = 0; alpha < 360; alpha += 10, ++i)
+//	int alpha = 45, i = 0;
   {
     TCHAR fname[256];
     _stprintf(fname, _T("%s_%02d.png"), argv[2], i);
 		std::tstring outname = dirname + std::tstring(fname);
     image.rotate(3.14*alpha/180.0, 0, 0, rotated);
 
-	  if ( !PngImager::write(outname.c_str(), rotated) )
-	  {
-		  std::tcout << _T("unable to write target image: ") << argv[2] << std::endl;
-		  return -1;
-	  }
+	  //if ( !PngImager::write(outname.c_str(), rotated) )
+	  //{
+		 // std::tcout << _T("unable to write target image: ") << argv[2] << std::endl;
+		 // return -1;
+	  //}
 
     std::tcout << outname << std::endl;
 

@@ -274,7 +274,11 @@ bool Image::take_part(int x, int y, int npixels, Image & target_image) const
 
 void Image::rotate(double angle, int translate_x, int translate_y, Image & target_image) const
 {
-  const unsigned char * src_buffer = buffer();
+	const int SHIFT = 10;
+	const int SCALE = 1<<SHIFT;
+	const int MASK = SCALE-1;
+
+	const unsigned char * src_buffer = buffer();
   unsigned char * dst_buffer = target_image.buffer();
   double sina = sin(angle);
   double cosa = cos(angle);
@@ -283,30 +287,35 @@ void Image::rotate(double angle, int translate_x, int translate_y, Image & targe
   int src_xcenter = width_/2;
   int src_ycenter = height_/2;
 
-	//int dst_x0 = x - dst_xcenter;
-	//int dst_y0 = y - dst_ycenter
+	int dst_x0 = -dst_xcenter;
+	int dst_y0 = -dst_ycenter;
 
-	//int src_x0 = dst_x0*cosa - dst_y0*sina + src_xcenter + translate_x;
-	//int src_y0 = dst_x0*sina + dst_y0*cosa + src_ycenter + translate_y;
+	int src_x0 = (dst_x0*cosa - dst_y0*sina + src_xcenter + translate_x) * SCALE;
+	int src_y0 = (dst_x0*sina + dst_y0*cosa + src_ycenter + translate_y) * SCALE;
 
-  for (int y = 0; y < target_image.height_; ++y, dst_buffer += target_image.pitch_)
+	int dxx = cosa*SCALE;
+	int dyx = sina*SCALE;
+	int dxy = -sina*SCALE;
+	int dyy = cosa*SCALE;
+
+
+  for (int dst_y = 0; dst_y < target_image.height_; ++dst_y, src_x0 += dxy, src_y0 += dyy, dst_buffer += target_image.pitch_)
   {
     unsigned char * dst_buf = dst_buffer;
 
-    for (int x = 0; x < target_image.width_; ++x, dst_buf += bytes_pp_)
+		int src_x = src_x0;
+		int src_y = src_y0;
+
+    for (int dst_x = 0; dst_x < target_image.width_; ++dst_x, src_x += dxx, src_y += dyx, dst_buf += bytes_pp_)
     {
-      double dx = cosa*(x-dst_xcenter) - sina*(y-dst_ycenter) + src_xcenter;
-      int xr = (int)(dx);
-      if ( xr < 0 || xr+1 >= width_ )
+      int xr = src_x >> SHIFT;
+			int yr = src_y >> SHIFT;
+
+      if ( xr < 0 || xr+1 >= width_ || yr < 0 || yr+1 >= height_ )
         continue;
 
-      double dy = sina*(x-dst_xcenter) + cosa*(y-dst_ycenter) + src_ycenter;
-      int yr = (int)(dy);
-      if ( yr < 0 || yr+1 >= height_ )
-        continue;
-
-      dx -= xr;
-      dy -= yr;
+			int dx = src_x & MASK;
+			int dy = src_y & MASK;
 
       const unsigned char * src_buf0 = src_buffer + yr*pitch_ + xr*bytes_pp_;
       const unsigned char * src_buf1 = src_buffer + yr*pitch_ + (xr+1)*bytes_pp_;
@@ -315,10 +324,12 @@ void Image::rotate(double angle, int translate_x, int translate_y, Image & targe
 
       for (int i = 0; i< 3; ++i)
       {
-        dst_buf[i] = src_buf0[i]*(1.0-dx)*(1.0-dy) +
-          src_buf1[i]*dx*(1.0-dy) +
-          src_buf2[i]*(1.0-dx)*dy +
+        unsigned color = src_buf0[i]*(SCALE-dx)*(SCALE-dy) +
+          src_buf1[i]*dx*(SCALE-dy) +
+          src_buf2[i]*(SCALE-dx)*dy +
           src_buf3[i]*dx*dy;
+
+				dst_buf[i] = (color >> SHIFT) >> SHIFT;
       }
     }
   }

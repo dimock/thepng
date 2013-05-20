@@ -119,7 +119,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(AGEXTLIBS)\zlib_1.2.8\vc2005\bin-x64\include&quot;;&quot;$(AGEXTLIBS)\libpng_1.6.2\vc2005\bin-x64\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(SANDBOX)\zlib_1.2.8\vc2005\bin-x64\include&quot;;&quot;$(SANDBOX)\libpng_1.6.2\vc2005\bin-x64\include&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -143,7 +143,7 @@
 				AdditionalDependencies="libpng16_staticd.lib zlibstaticd.lib"
 				OutputFile="$(OutDir)\$(ProjectName)d.exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;$(AGEXTLIBS)\zlib_1.2.8\vc2005\bin-x64\lib&quot;;&quot;$(AGEXTLIBS)\libpng_1.6.2\vc2005\bin-x64\lib&quot;"
+				AdditionalLibraryDirectories="&quot;$(SANDBOX)\zlib_1.2.8\vc2005\bin-x64\lib&quot;;&quot;$(SANDBOX)\libpng_1.6.2\vc2005\bin-x64\lib&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="17"
@@ -274,7 +274,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(AGEXTLIBS)\zlib_1.2.8\vc2005\bin-x64\include&quot;;&quot;$(AGEXTLIBS)\libpng_1.6.2\vc2005\bin-x64\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(SANDBOX)\zlib_1.2.8\vc2005\bin-x64\include&quot;;&quot;$(SANDBOX)\libpng_1.6.2\vc2005\bin-x64\include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -295,7 +295,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="libpng16_static.lib zlibstatic.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="&quot;$(AGEXTLIBS)\zlib_1.2.8\vc2005\bin-x64\lib&quot;;&quot;$(AGEXTLIBS)\libpng_1.6.2\vc2005\bin-x64\lib&quot;"
+				AdditionalLibraryDirectories="&quot;$(SANDBOX)\zlib_1.2.8\vc2005\bin-x64\lib&quot;;&quot;$(SANDBOX)\libpng_1.6.2\vc2005\bin-x64\lib&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -340,6 +340,22 @@
 			>
 		</File>
 		<File
+			RelativePath=".\image.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\image.h"
+			>
+		</File>
+		<File
+			RelativePath=".\image_aligner.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\image_aligner.h"
+			>
+		</File>
+		<File
 			RelativePath=".\png_imager.cpp"
 			>
 		</File>
@@ -349,6 +365,10 @@
 		</File>
 		<File
 			RelativePath=".\thepng.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\vec2.h"
 			>
 		</File>
 	</Files>

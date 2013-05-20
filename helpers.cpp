@@ -34,6 +34,19 @@ std::tstring extract_filename(const std::tstring & pathname)
 	return filename;
 }
 
+std::tstring extract_dirname(const std::tstring & filename)
+{
+	std::tstring dirname = filename;
+	size_t dl_pos = dirname.find_last_of(dir_delimiter);
+	if ( dl_pos != std::tstring::npos )
+	{
+		dirname.erase(dl_pos+1);
+		return dirname;
+	}
+	else
+		return std::tstring();
+}
+
 TestTimer::TestTimer()
 {
   LARGE_INTEGER qf, qc;

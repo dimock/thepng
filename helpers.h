@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tchar.h>
+#include <string>
 #include <iostream>
 #include <locale.h>
 
@@ -25,6 +26,7 @@ const TCHAR asteric = L'*';
 
 void replace_delimiter(std::tstring & pathname);
 std::tstring extract_filename(const std::tstring & pathname);
+std::tstring extract_dirname(const std::tstring & filename);
 
 class TestTimer
 {

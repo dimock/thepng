@@ -272,16 +272,22 @@ bool Image::take_part(int x, int y, int npixels, Image & target_image) const
   return true;
 }
 
-void Image::rotate(double angle, Image & target_image) const
+void Image::rotate(double angle, int translate_x, int translate_y, Image & target_image) const
 {
   const unsigned char * src_buffer = buffer();
   unsigned char * dst_buffer = target_image.buffer();
   double sina = sin(angle);
   double cosa = cos(angle);
-  int xcenter = target_image.width_/2;
-  int ycenter = target_image.height_/2;
+  int dst_xcenter = target_image.width_/2;
+  int dst_ycenter = target_image.height_/2;
   int src_xcenter = width_/2;
   int src_ycenter = height_/2;
+
+	//int dst_x0 = x - dst_xcenter;
+	//int dst_y0 = y - dst_ycenter
+
+	//int src_x0 = dst_x0*cosa - dst_y0*sina + src_xcenter + translate_x;
+	//int src_y0 = dst_x0*sina + dst_y0*cosa + src_ycenter + translate_y;
 
   for (int y = 0; y < target_image.height_; ++y, dst_buffer += target_image.pitch_)
   {
@@ -289,12 +295,12 @@ void Image::rotate(double angle, Image & target_image) const
 
     for (int x = 0; x < target_image.width_; ++x, dst_buf += bytes_pp_)
     {
-      double dx = cosa*(x-xcenter) - sina*(y-ycenter) + src_xcenter;
+      double dx = cosa*(x-dst_xcenter) - sina*(y-dst_ycenter) + src_xcenter;
       int xr = (int)(dx);
       if ( xr < 0 || xr+1 >= width_ )
         continue;
 
-      double dy = sina*(x-xcenter) + cosa*(y-ycenter) + src_ycenter;
+      double dy = sina*(x-dst_xcenter) + cosa*(y-dst_ycenter) + src_ycenter;
       int yr = (int)(dy);
       if ( yr < 0 || yr+1 >= height_ )
         continue;

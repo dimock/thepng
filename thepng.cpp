@@ -40,22 +40,27 @@ int _tmain(int argc, TCHAR **argv)
   //  return -1;
   //}
 
+	std::tstring iname(argv[1]);
+	replace_delimiter(iname);
+	std::tstring dirname = extract_dirname(iname);
+
   int side = sqrt( (double)(image.width()*image.width()+image.height()*image.height()) );
   Image rotated(side, side, image.bytes_pp());
 
   for (int alpha = 0, i = 0; alpha < 360; alpha += 10, ++i)
   {
-    TCHAR dst_name[256];
-    _stprintf(dst_name, _T("%s_%02d.png"), argv[2], i);
-    image.rotate(3.14*alpha/180.0, rotated);
+    TCHAR fname[256];
+    _stprintf(fname, _T("%s_%02d.png"), argv[2], i);
+		std::tstring outname = dirname + std::tstring(fname);
+    image.rotate(3.14*alpha/180.0, 0, 0, rotated);
 
-	  if ( !PngImager::write(dst_name, rotated) )
+	  if ( !PngImager::write(outname.c_str(), rotated) )
 	  {
 		  std::tcout << _T("unable to write target image: ") << argv[2] << std::endl;
 		  return -1;
 	  }
 
-    std::tcout << dst_name << std::endl;
+    std::tcout << outname << std::endl;
 
     rotated.clear_data();
   }

@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-ImageAligner::ImageAligner(ImagesUC & images, int scaleFactor, int featureSize, int featuresCount) :
-  images_(images), scaleFactor_(scaleFactor), featureSize_(featureSize), featuresCount_(featuresCount)
+ImageAligner::ImageAligner(ImagesUC & images, int scaleFactor, int featuresCount) :
+  images_(images), scaleFactor_(scaleFactor), featuresCount_(featuresCount)
 {
   scaled_.resize(images_.size());
   for (size_t i = 0; i < images_.size(); ++i)
@@ -26,44 +26,48 @@ bool ImageAligner::findFeatures(int index)
 
   for (int i = 0; i < features_.size(); ++i)
   {
-    TCHAR fname[256];
-    _stprintf(fname, _T("..//..//..//data//temp//feature_%02d.png"), i);
-
-		features_[i].calcCharacter();
-		Color3uc color = features_[i].average_color();
+		Color3uc color = features_[i].color();
 
 		std::tcout << _T("Feature(") << i << _T(") have variation ") << features_[i].variation() << _T(" and average color (") << 
 			color.r() << _T(", ") << color.g() << _T(", ") << color.b() << _T(")\n");
-
-    PngImager::write(fname, features_[i].image());
   }
+
+  TCHAR fname[256];
+  _stprintf(fname, _T("..//..//..//data//temp//feature_%02d.png"), index);
+
+
+  ImageUC image;
+  featuresToImage(scaled_[index], image);
+  PngImager::write(fname, image);
 
   return true;
 }
 
 bool ImageAligner::collectFeatures(int index)
 {
+  if ( featuresCount_ < 1 )
+    return false;
+
 	srand(time(0));
 
-  ImageUC & img = images_[index];
+  Image<FeatureUC> & img = scaled_[index];
 
 	int offset_x = 2;
 	int offset_y = 2;
 
-  int w = img.width() - offset_x*2 - featureSize_;
-  int h = img.height() - offset_x*2 - featureSize_;
+  int w = img.width()  - offset_x*2 - scaleFactor_;
+  int h = img.height() - offset_x*2 - scaleFactor_;
+
+  features_.resize(featuresCount_);
 
 	for (int i = 0; i < featuresCount_; ++i)
 	{
 		int x = (((double)rand()) / RAND_MAX) * w;
 		int y = (((double)rand()) / RAND_MAX) * h;
 
-		features_.push_back(FeatureUC());
-		features_.back().set_transform( Vec2i(x, y) );
-
-		if ( !img.take_part(x, y, featureSize_, features_.back().image()) )
-			break;
+    int j = x + y * img.width();
+    features_[i] = img[j];
 	}
 
-	return !features_.empty();
+	return true;
 }

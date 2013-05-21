@@ -32,7 +32,7 @@ int _tmain(int argc, TCHAR **argv)
 		}
 	}
 
-  ImageAligner aligner(images, 1, 50, 8);
+  ImageAligner aligner(images, 8, 16);
 
   if ( !aligner.findFeatures(0) )
   {

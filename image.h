@@ -142,11 +142,11 @@ public:
   const C * buffer() const { return buffer_.empty() ? 0 : &buffer_[0]; }
   C * buffer() { return buffer_.empty() ? 0 : &buffer_[0]; }
 
+  const C & operator [] (size_t i) const { return buffer_.at(i); }
+  C & operator [] (size_t i) { return buffer_.at(i); }
+
   C * get_row(int i) { return buffer() + width_ * i; }
   const C * get_row(int i) const { return buffer() + width_ * i; }
-
-	template <class C, class A>
-  friend bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image);
 
   bool take_part(int x, int y, int npixels, Image & target_image) const;
 
@@ -168,69 +168,6 @@ private:
   std::vector<C> buffer_;
 };
 
-/**
- * scale image proportionally in both directions
- * destination image pixels have average color of the corresponding source pixels
- */
-
-template <class C, class A>
-bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image)
-{
-	int dst_width  = source_image.width_ /factor;
-	int dst_height = source_image.height_/factor;
-
-	if ( dst_width < 1 || dst_height < 1 )
-		return false;
-
-	// allocate target buffer
-	// pixels are unsigned, because we have to store sum of source pixels colors
-	std::vector<A> temp_buffer(dst_width*dst_height);
-
-	const C * src_buffer = source_image.buffer();
-	A * dst_buffer = &temp_buffer[0];
-
-	// sequentially scan source image row by row
-	for (int y = 0, y_dst = 0, y_counter = 0; y < source_image.height_; ++y, y_counter++, src_buffer += source_image.width_)
-	{
-		// we need to go to the next line of target image
-		if ( y_counter >= factor )
-		{
-			y_counter = 0;
-			if ( ++y_dst >= dst_height )
-				break;
-
-			dst_buffer += dst_width;
-		}
-
-		const C * src_row = src_buffer;
-		A * dst_row = dst_buffer;
-
-		for (int x = 0, x_dst = 0, x_counter = 0; x < source_image.width_; ++x, x_counter++, src_row++)
-		{
-			// take the next taget pixel
-			if ( x_counter >= factor )
-			{
-				x_counter = 0;
-				if ( ++x_dst >= dst_width )
-					break;
-
-				dst_row++;
-			}
-
-			*dst_row += *src_row;
-		}
-	}
-
-	// copy average values of the result to the target
-	target_image.init(dst_width, dst_height);
-	C * target_buffer = target_image.buffer();
-	int factor2 = factor*factor;
-
-	for (size_t i = 0; i < temp_buffer.size(); ++i)
-		target_buffer[i] = temp_buffer[i]/factor2;
-
-	return true;
-}
 
 /// extract part of image starting from point (x, y) with size npixels in both directions
 template <class C>

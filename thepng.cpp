@@ -34,16 +34,12 @@ int _tmain(int argc, TCHAR **argv)
 
   ImageAligner aligner(images, 8, 16);
 
-  if ( !aligner.findFeatures(0) )
+  double diff = aligner.align(0, 1);
+  if ( diff < 0 )
   {
-    std::tcout << _T("can't find features\n");
+    std::tcout << _T("can't align images\n");
     return -1;
   }
-
-	ImageUC rotated(images[0].width()*1.5, images[0].height()*1.5);
-	rotate<Color3uc, Color3u>(3.14*30/180, Vec2i(0, 0), images[0], rotated);
-
-	PngImager::write( _T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
 
   double dt = tt.getTimeMs();
 

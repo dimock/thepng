@@ -18,6 +18,14 @@ public:
 	double variation() const { return variation_; }
 	const C & color() const { return color_; }
 
+  double difference(const Feature<C> & other) const
+  {
+    double var_diff = abs(variation_ - other.variation_);
+    Color3i delta_color = Color3i(color_) - Color3i(other.color_);
+    double color_diff = sqrt((double)delta_color.r()*delta_color.r() + delta_color.g()*delta_color.g() + delta_color.b()*delta_color.b());
+    return color_diff * var_diff;
+  }
+
 private:
 
   Vec2i tr_;
@@ -129,11 +137,12 @@ public:
 
   ImageAligner(ImagesUC & images, int scaleFactor, int featuresCount);
 
-  // search for features in image with given index
-  bool findFeatures(int index);
+  double align(int index1, int index2);
 
 private:
 
+  // search for features in image with given index
+  bool findFeatures(int index);
   bool collectFeatures(int index);
 
   std::vector<Image<FeatureUC>> scaled_;

@@ -38,7 +38,7 @@ public:
  * read/write PNG to Image
  */
 
-bool PngImager::read(const TCHAR * pngfile, Image & image)
+bool PngImager::read(const TCHAR * pngfile, ImageUC & image)
 {
 	png_byte header[8];
 	FileWrapper fp(pngfile, _T("rb"));
@@ -73,21 +73,9 @@ bool PngImager::read(const TCHAR * pngfile, Image & image)
 	if ( bit_depth != 8 ) // in this simple example we don't consider PNG depth to be not equal to 8 bit )
 		return false;
 
-	int bytes_pp = 0;
-	switch ( color_type )
-	{
-	case PNG_COLOR_TYPE_RGB:
-		bytes_pp = 3;
-		break;
-
-	case PNG_COLOR_TYPE_RGBA:
-		bytes_pp = 4;
-		break;
-
 	// we don't support other formats yet (
-	default:
+	if ( color_type != PNG_COLOR_TYPE_RGB )
 		return false;
-	}
 
 	int number_of_passes = png_set_interlace_handling(png_ptr); // ???
 	png_read_update_info(png_ptr, info_ptr);
@@ -97,35 +85,21 @@ bool PngImager::read(const TCHAR * pngfile, Image & image)
 		return false;
 
 	/// we suppose that all rows in PNG have equal length!!!
-	if ( !image.init(width, height, bytes_pp) )
+	if ( !image.init(width, height) )
 		return false;
 
 	std::vector<png_bytep> rows(image.height());
 	for (int i = 0; i < image.height(); ++i)
-		rows[i] = image.get_row(i);
+		rows[i] = reinterpret_cast<png_bytep>(image.get_row(i));
 
 	png_read_image(png_ptr, &rows[0]);
 
 	return true;
 }
 
-bool PngImager::write(const TCHAR * pngfile, const Image & image)
+bool PngImager::write(const TCHAR * pngfile, const ImageUC & image)
 {
-	int color_type = 0;
-	switch ( image.bytes_pp() )
-	{
-	case 3:
-		color_type = PNG_COLOR_TYPE_RGB;
-		break;
-
-	case 4:
-		color_type = PNG_COLOR_TYPE_RGBA;
-		break;
-
-	// don't support other types
-	default:
-		return false;
-	}
+	int color_type = PNG_COLOR_TYPE_RGB;
 
 	/* create file */
 	FileWrapper fp(pngfile, _T("wb"));
@@ -167,7 +141,7 @@ bool PngImager::write(const TCHAR * pngfile, const Image & image)
 
 	std::vector<const unsigned char *> rows(image.height());
 	for (int i = 0; i < image.height(); ++i)
-		rows[i] = image.get_row(i);
+		rows[i] = reinterpret_cast<const unsigned char *>(image.get_row(i));
 
 	png_write_image(png_ptr, (png_bytepp)&rows[0]);
 

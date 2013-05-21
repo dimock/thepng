@@ -2,16 +2,16 @@
 #include "helpers.h"
 #include "png_imager.h"
 #include <algorithm>
+#include <stdlib.h>
+#include <time.h>
 
-ImageAligner::ImageAligner(Images & images, int scaleFactor, int featureSize, int featuresCount) :
+ImageAligner::ImageAligner(ImagesUC & images, int scaleFactor, int featureSize, int featuresCount) :
   images_(images), scaleFactor_(scaleFactor), featureSize_(featureSize), featuresCount_(featuresCount)
 {
   scaled_.resize(images_.size());
   for (size_t i = 0; i < images_.size(); ++i)
   {
-    scaled_[i].init(images_[i].width(), images_[i].height(), images_[i].bytes_pp());
-
-    if ( !images[i].scale_xy(scaleFactor_, scaled_[i]) )
+    if ( !scale_xy<Color3uc, Color3u>(scaleFactor_, images[i], scaled_[i]) )
     {
       std::tcout << _T("Can't scale image ") << std::endl;
       return;
@@ -19,12 +19,9 @@ ImageAligner::ImageAligner(Images & images, int scaleFactor, int featureSize, in
   }
 }
 
-bool ImageAligner::findFeatures(int index, int angle, int deltaAngle, double varThreshold)
+bool ImageAligner::findFeatures(int index)
 {
-  if ( !collectFeatures(index, varThreshold) )
-    return false;
-
-  if ( !rotateFeatures(index, angle, deltaAngle) )
+  if ( !collectFeatures(index) )
     return false;
 
   for (int i = 0; i < features_.size(); ++i)
@@ -32,142 +29,41 @@ bool ImageAligner::findFeatures(int index, int angle, int deltaAngle, double var
     TCHAR fname[256];
     _stprintf(fname, _T("..//..//..//data//temp//feature_%02d.png"), i);
 
-    PngImager::write(fname, features_[i].images_[0]);
+		features_[i].calcCharacter();
+		Color3uc color = features_[i].average_color();
+
+		std::tcout << _T("Feature(") << i << _T(") have variation ") << features_[i].variation() << _T(" and average color (") << 
+			color.r() << _T(", ") << color.g() << _T(", ") << color.b() << _T(")\n");
+
+    PngImager::write(fname, features_[i].image());
   }
 
   return true;
 }
 
-bool ImageAligner::collectFeatures(int index, double varThreshold)
+bool ImageAligner::collectFeatures(int index)
 {
-  Image & img_scaled = scaled_[index];
+	srand(time(0));
 
-  int w = img_scaled.width();
-  int h = img_scaled.height();
+  ImageUC & img = images_[index];
 
-  int offset_x = featureSize_*0.22;
-  int offset_y = featureSize_*0.22;
+	int offset_x = 2;
+	int offset_y = 2;
 
-  int x0 = offset_x;
-  int y0 = offset_y;
-  int x1 = w - offset_x - featureSize_;
-  int y1 = h - offset_y - featureSize_;
-  int x = x0;
-  int y = y0;
+  int w = img.width() - offset_x*2 - featureSize_;
+  int h = img.height() - offset_x*2 - featureSize_;
 
-  int perimeter = 2 * ((w-offset_x-featureSize_) + (h-offset_y-featureSize_));
-  int d = perimeter / featuresCount_;
+	for (int i = 0; i < featuresCount_; ++i)
+	{
+		int x = (((double)rand()) / RAND_MAX) * w;
+		int y = (((double)rand()) / RAND_MAX) * h;
 
-  for (; x <= x1; x += d)
-  {
-    Image part;
-    if ( !img_scaled.take_part(x, y, featureSize_, part) )
-    {
-      break;
-    }
+		features_.push_back(FeatureUC());
+		features_.back().set_transform( Vec2i(x, y) );
 
-    double var = part.take_variation();
-    if ( var < 0 )
-      continue;
+		if ( !img.take_part(x, y, featureSize_, features_.back().image()) )
+			break;
+	}
 
-    features_.push_back(Feature());
-    features_.back().tr_.push_back(Vec2(x, y));
-    features_.back().variation_ = var;
-  }
-  if ( x > x1 )
-  {
-    y += (x - x1);
-    x = x1;
-  }
-  for ( ; y <= y1; y += d)
-  {
-    Image part;
-    if ( !img_scaled.take_part(x, y, featureSize_, part) )
-    {
-      break;
-    }
-
-    double var = part.take_variation();
-    if ( var < 0 )
-      continue;
-
-    features_.push_back(Feature());
-    features_.back().tr_.push_back(Vec2(x, y));
-    features_.back().variation_ = var;
-  }
-  if ( y > y1 )
-  {
-    x -= (y - y1);
-    y = y1;
-  }
-  for ( ; x >= x0; x -= d)
-  {
-    Image part;
-    if ( !img_scaled.take_part(x, y, featureSize_, part) )
-    {
-      break;
-    }
-
-    double var = part.take_variation();
-    if ( var < 0 )
-      continue;
-
-    features_.push_back(Feature());
-    features_.back().tr_.push_back(Vec2(x, y));
-    features_.back().variation_ = var;
-  }
-  if ( x < x0 )
-  {
-    y -= (x0 - x);
-    x = x0;
-  }
-  for ( ; y >= y0; y -= d)
-  {
-    if ( features_.size() == featuresCount_ )
-      break;
-
-    Image part;
-    if ( !img_scaled.take_part(x, y, featureSize_, part) )
-    {
-      break;
-    }
-
-    double var = part.take_variation();
-    if ( var < 0 )
-      continue;
-
-    features_.push_back(Feature());
-    features_.back().tr_.push_back(Vec2(x, y));
-    features_.back().variation_ = var;
-  }
-
-  if ( features_.empty() )
-    return false;
-
-  //std::sort(features_.begin(), features_.end());
-
-  //for (std::vector<Feature>::iterator i = features_.begin(); i != features_.end(); ++i)
-  //{
-  //  if ( i->variation_ < varThreshold )
-  //  {
-  //    features_.erase(i, features_.end());
-  //    break;
-  //  }
-  //}
-
-  return !features_.empty();
-}
-
-bool ImageAligner::rotateFeatures(int index, int angle, int deltaAngle)
-{
-  Image & img_scaled = scaled_[index];
-  int num = (angle*2 / deltaAngle) + 1;
-
-  for (std::vector<Feature>::iterator i = features_.begin(); i != features_.end(); ++i)
-  {
-    i->images_.resize(num);
-    img_scaled.take_part(i->tr_[0].x(), i->tr_[0].y(), featureSize_, i->images_[0]);
-  }
-
-  return true;
+	return !features_.empty();
 }

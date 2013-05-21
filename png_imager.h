@@ -7,6 +7,6 @@ class PngImager
 {
 public:
 
-	static bool read(const TCHAR * pngfile, Image & image);
-	static bool write(const TCHAR * pngfile, const Image & image);
+	static bool read(const TCHAR * pngfile, ImageUC & image);
+	static bool write(const TCHAR * pngfile, const ImageUC & image);
 };

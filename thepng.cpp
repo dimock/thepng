@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <math.h>
 #include <float.h>
+#include "vec2.h"
 
 int _tmain(int argc, TCHAR **argv)
 {
@@ -20,7 +21,7 @@ int _tmain(int argc, TCHAR **argv)
 
   TestTimer tt;
 
-	std::vector<Image> images(argc-1);
+	std::vector<ImageUC> images(argc-1);
 
 	for (int i = 1; i < argc; ++i)
 	{
@@ -33,11 +34,16 @@ int _tmain(int argc, TCHAR **argv)
 
   ImageAligner aligner(images, 1, 50, 8);
 
-  if ( !aligner.findFeatures(0, 15, 5, 1) )
+  if ( !aligner.findFeatures(0) )
   {
     std::tcout << _T("can't find features\n");
     return -1;
   }
+
+	ImageUC rotated(images[0].width()*1.5, images[0].height()*1.5);
+	rotate<Color3uc, Color3u>(3.14*30/180, Vec2i(0, 0), images[0], rotated);
+
+	PngImager::write( _T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
 
   double dt = tt.getTimeMs();
 

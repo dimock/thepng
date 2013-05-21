@@ -1,14 +1,17 @@
 #pragma once
 
+template <class T>
 class Vec2
 {
-  int x_, y_;
+  T x_, y_;
 
 public:
 
   Vec2() : x_(0), y_(0) {}
-  Vec2(int x, int y) : x_(x), y_(y) {}
+  Vec2(T x, T y) : x_(x), y_(y) {}
 
-  int x() const { return x_; }
-  int y() const { return y_; }
+  T x() const { return x_; }
+  T y() const { return y_; }
 };
+
+typedef Vec2<int> Vec2i;

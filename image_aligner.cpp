@@ -12,6 +12,8 @@ void Feature::prepare()
 	if ( contour_.empty() )
 		return;
 
+  simplify(contour_.size() / 4);
+
 	center_ = contour_[0];
 	for (size_t i = 1; i < contour_.size(); ++i)
 		center_ += contour_[i];
@@ -36,22 +38,42 @@ bool Feature::operator < (const Feature & other) const
 
 double Feature::similarity(const Feature & other) const
 {
-	if ( contour_.size() == 0 || other.contour_.size() == 0 || colorIndex_ != other.colorIndex_ )
+	if ( contour_.size() == 0 || other.contour_.size() == 0 || colorIndex_ != other.colorIndex_ ||
+       contour_.size() > other.contour_.size()*2 ||
+       other.contour_.size() > contour_.size()*2 ||
+       radius_ > other.radius_*2 ||
+       other.radius_ > radius_*2 )
 		return -1.0;
 
-	double sim_size = abs((double)contour_.size() - other.contour_.size())/((double)contour_.size() + other.contour_.size());
-	double sim_radius = abs(radius_ - other.radius_) / (radius_ + other.radius_);
-
-	double sim = sim_size * sim_radius;
-	return sim;
+  double diff = 0;
+  Vec2d tr = other.center_ - center_;
+  for (size_t i = 0; i < contour_.size(); ++i)
+  {
+    Vec2d p = contour_[i] + tr;
+    double dist = std::numeric_limits<double>::max();
+    for (size_t j = 0; j < other.contour_.size(); ++j)
+    {
+      const Vec2d & q = other.contour_[j];
+      double d = (p - q).length();
+      if ( d < dist )
+        dist = d;
+    }
+    diff += dist;
+  }
+  diff /= contour_.size();
+  return diff;
 }
 
 void Feature::simplify(size_t numPoints)
 {
-	//while ( contour_.size() > numPoints )
-	//{
-	//	for ()
-	//}
+	while ( contour_.size() > numPoints )
+	{
+    Contour temp;
+		for (size_t i = 0; i < contour_.size(); i += 2)
+      temp.push_back(contour_[i]);
+
+    contour_.swap(temp);
+	}
 }
 
 class CompareSimilarity
@@ -63,25 +85,6 @@ public:
     return pr1.second < pr2.second;
   }
 };
-
-void Feature::findClosestFeatures(const Features & otherFeatures, size_t maxNum)
-{
-  if ( otherFeatures.empty() )
-    return;
-
-  closestFeatures_.clear();
-	for (size_t i = 0; i < otherFeatures.size(); ++i)
-	{
-		const Feature & feature = otherFeatures[i];
-		double s = similarity(feature);
-    if ( s >= 0 )
-      closestFeatures_.push_back( std::make_pair(i, s) );
-	}
-
-  std::sort(closestFeatures_.begin(), closestFeatures_.end(), CompareSimilarity());
-  if ( closestFeatures_.size() > maxNum )
-    closestFeatures_.erase(closestFeatures_.begin()+maxNum, closestFeatures_.end());
-}
 
 //////////////////////////////////////////////////////////////////////////
 void findBoundaries(Image<int> & image)
@@ -286,94 +289,32 @@ void align(std::vector<ImageUC> & images, double threshold, size_t maxPaletteSiz
       features[j].prepare();
   }
 
-  Features & features = features_arr[0];
-  for (size_t j = 0; j < features.size(); ++j)
-    features[j].findClosestFeatures(features_arr[1], similarMax);
+  size_t index1, index2;
+  findCorrelatedFeatures(features_arr[0], features_arr[1], index1, index2);
 
-  findCorrelatedFeatures(features_arr[0], features_arr[1], correlatedNum);
-
-  int bestCorrelated = -1;
-  double corrDist = std::numeric_limits<double>::max();
-
-  for (size_t i = 0; i < features_arr[0].size(); ++i)
-  {
-    Feature & feature = features_arr[0][i];
-    if ( feature.correlatedFeatures_.empty() )
-      continue;
-
-    Correlation & corr = *feature.correlatedFeatures_.begin();
-    Feature & two = features_arr[0][corr.twoIndex_];
-    Feature & other1 = features_arr[1][corr.corrIndex1_];
-    Feature & other2 = features_arr[1][corr.corrIndex2_];
-
-    double s1 = feature.similarity(other1);
-    double s2 = two.similarity(other2);
-
-    double cdist = s1 * s2 * corr.deltaDist_;
-    if ( cdist < corrDist )
-    {
-      corrDist = cdist;
-      bestCorrelated = i;
-    }
-  }
-
-  if ( bestCorrelated >= 0 )
-  {
-    Feature & best = features_arr[0][bestCorrelated];
-    Correlation & corr = *best.correlatedFeatures_.begin();
-    Feature & two = features_arr[0][corr.twoIndex_];
-    Feature & other1 = features_arr[1][corr.corrIndex1_];
-    Feature & other2 = features_arr[1][corr.corrIndex2_];
-
-    std::vector<Feature> bestFeatures, corrFeatures;
-    bestFeatures.push_back(best);
-    bestFeatures.push_back(two);
-    corrFeatures.push_back(other1);
-    corrFeatures.push_back(other2);
-    saveContours( _T("..\\..\\..\\data\\temp\\correlated1.txt"), bestFeatures );
-    saveContours( _T("..\\..\\..\\data\\temp\\correlated2.txt"), corrFeatures );
-  }
+  saveContour( _T("..\\..\\..\\data\\temp\\correlated1.txt"), features_arr[0][index1].contour_ );
+  saveContour( _T("..\\..\\..\\data\\temp\\correlated2.txt"), features_arr[1][index2].contour_ );
 }
 
 //////////////////////////////////////////////////////////////////////////
-void findCorrelatedFeatures(Features & features, Features & other, size_t correlatedNum)
+void findCorrelatedFeatures(Features & features, Features & other, size_t & index0, size_t & index1)
 {
+  double sim = std::numeric_limits<double>::max();
+
   for (size_t i = 0; i < features.size(); i++)
   {
     Feature & one = features[i];
-    for (size_t j = i+1; j < features.size(); ++j)
+    for (size_t j = 0; j < other.size(); ++j)
     {
-      Feature & two = features[j];
-      double dist = (one.center_ - two.center_).length();
-      for (size_t k = 0; k < one.closestFeatures_.size(); ++k)
+      Feature & two = other[j];
+
+      double s = one.similarity(two);
+      if ( s > 0 && s < sim )
       {
-        int corrIndex1 = one.closestFeatures_[k].first;
-        Feature & corr1 = other[corrIndex1];
-
-        for (size_t l = 0; l < two.closestFeatures_.size(); ++l)
-        {
-          int corrIndex2 = two.closestFeatures_[l].first;
-          if ( corrIndex1 == corrIndex2 )
-            continue;
-
-          Feature & corr2 = other[corrIndex2];
-
-          double d = (corr1.center_ - corr2.center_).length();
-          double delta = abs(dist - d) / (dist + d);
-
-          Correlation correlation;
-          correlation.deltaDist_ = delta;
-          correlation.corrIndex1_ = corrIndex1;
-          correlation.corrIndex2_ = corrIndex2;
-          correlation.twoIndex_ = j;
-
-          one.correlatedFeatures_.push_back(correlation);
-        }
+        sim = s;
+        index0 = i;
+        index1 = j;
       }
-
-      std::sort(one.correlatedFeatures_.begin(), one.correlatedFeatures_.end());
-      if ( one.correlatedFeatures_.size() > correlatedNum )
-        one.correlatedFeatures_.erase(one.correlatedFeatures_.begin() + correlatedNum, one.correlatedFeatures_.end());
     }
   }
 }

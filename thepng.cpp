@@ -32,9 +32,9 @@ int _tmain(int argc, TCHAR **argv)
 		}
 	}
 
-	//std::vector<ImageUC> scaled(images.size());
-	//for (size_t i = 0; i < images.size(); ++i)
-	//	scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
+	std::vector<ImageUC> scaled(images.size());
+	for (size_t i = 0; i < images.size(); ++i)
+		scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
 
 	std::vector<Color3uc> palette;
 	double threshold = 15.0;
@@ -43,7 +43,7 @@ int _tmain(int argc, TCHAR **argv)
 
 	for (size_t i = 0; i < images.size(); ++i)
 	{
-		images[i].make_palette(paletteBuffers[i], palette, threshold, maxPaletteSize);
+		scaled[i].make_palette(paletteBuffers[i], palette, threshold, maxPaletteSize);
 	}
 
 	normalize_palette(palette);
@@ -59,25 +59,31 @@ int _tmain(int argc, TCHAR **argv)
 		PngImager::write(fname, paletteImages[i]);
 	}
 
+	std::vector<Features> features_arr(paletteBuffers.size());
+
 	for (size_t i = 0; i < paletteBuffers.size(); ++i)
 	{
-		Contours contours;
-		vectorize(paletteBuffers[i], contours, 100);
+		vectorize(paletteBuffers[i], features_arr[i], 100, 30);
 
 		TCHAR fname[256];
 		_stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
-		saveCountours(fname, contours);
+		saveContours(fname, features_arr[i]);
 	}
 
+	for (size_t i = 0; i < features_arr.size(); ++i)
+	{
+		Features & features = features_arr[i];
+		for (size_t j = 0; j < features.size(); ++j)
+			features[j].prepare();
+	}
 
-  //ImageAligner aligner(images, 8, 16);
+	size_t i0, i1;
+	double s = findClosestFeatures(features_arr[0], features_arr[1], i0, i1);
 
-  //double diff = aligner.align(0, 1);
-  //if ( diff < 0 )
-  //{
-  //  std::tcout << _T("can't align images\n");
-  //  return -1;
-  //}
+	std::tcout << _T("Similarity = ") << s << std::endl;
+
+	saveContour(_T("..\\..\\..\\data\\temp\\closest_0.txt"), features_arr[0][i0].contour_);
+	saveContour(_T("..\\..\\..\\data\\temp\\closest_1.txt"), features_arr[1][i1].contour_);
 
   double dt = tt.getTimeMs();
 

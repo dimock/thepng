@@ -204,8 +204,12 @@ void findBoundaries(Image<int> & image)
 
 void writeCountour(Image<int> & image, int x, int y, Contour & contour)
 {
+	static const int offsets[8][2] = { {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1} };
+
 	int * buffer = image.buffer();
-	int n = x + image.width()*y;
+	int n0 = x + image.width()*y;
+	int colorIndex = buffer[n0];
+	int i = 0;
 	bool ok = true;
 
 	for ( ; ok; )
@@ -213,31 +217,53 @@ void writeCountour(Image<int> & image, int x, int y, Contour & contour)
 		contour.push_back( Vec2d(x, y) );
 		ok = false;
 
-		for (int j = -1; !ok && j < 2; ++j)
+		for (int j = 0; j < 8; ++j, ++i)
 		{
-			for (int i = -1; !ok && i < 2; ++i)
-			{
-				if ( i == 0 && j == 0 )
-					continue;
+			if ( i > 7 )
+				i = 0;
 
-				int x1 = x+i, y1 = y+j;
-				if ( x1 < 0 || x1 >= image.width() || y1 < 0 || y1 >= image.height() )
-					continue;
+			int x1 = x + offsets[i][0];
+			int y1 = y + offsets[i][1];
 
-				int n1 = x1 + y1*image.width();
-				if ( buffer[n1] == -1 || buffer[n1] != buffer[n] )
-					continue;
+			if ( x1 < 0 || x1 >= image.width() || y1 < 0 || y1 >= image.height() )
+				continue;
 
-				buffer[n1] = -1;
-				n = n1;
-				x = x1;
-				y = y1;
-				ok = true;
+			int n1 = x1 + y1*image.width();
+			if ( n1 == n0 )
 				break;
-			}
+
+			if ( buffer[n1] == -1 || buffer[n1] != colorIndex )
+				continue;
+
+			x = x1;
+			y = y1;
+			i = (i + 4) % 8;
+			i++;
+			if ( i > 7 )
+				i = 0;
+
+			ok = true;
+			break;
 		}
 	}
+
+	for (size_t i = 0; i < contour.size(); ++i)
+	{
+		Vec2i v = contour[i];
+		int index = image.width()*v.y() + v.x();
+		buffer[index] = -1;
+	}
 }
+
+class CompareContours
+{
+public:
+
+	bool operator () (const Contour & c1, const Contour & c2) const
+	{
+		return c1.size() > c2.size();
+	}
+};
 
 void vectorize(Image<int> & image, Contours & contours, size_t minLength)
 {
@@ -257,6 +283,12 @@ void vectorize(Image<int> & image, Contours & contours, size_t minLength)
 			if ( contours.back().size() < minLength )
 				contours.pop_back();
 		}
+	}
+
+	std::sort(contours.begin(), contours.end(), CompareContours());
+	if ( contours.size() > 20 )
+	{
+		contours.erase(contours.begin()+20, contours.end());
 	}
 }
 

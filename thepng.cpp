@@ -62,10 +62,10 @@ int _tmain(int argc, TCHAR **argv)
 	for (size_t i = 0; i < paletteBuffers.size(); ++i)
 	{
 		Contours contours;
-		vectorize(paletteBuffers[i], contours, 20);
+		vectorize(paletteBuffers[i], contours, 100);
 
 		TCHAR fname[256];
-		_stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.png"), i);
+		_stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
 		saveCountours(fname, contours);
 	}
 

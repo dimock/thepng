@@ -32,58 +32,18 @@ int _tmain(int argc, TCHAR **argv)
 		}
 	}
 
-	std::vector<ImageUC> scaled(images.size());
-	for (size_t i = 0; i < images.size(); ++i)
-		scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
+	//std::vector<ImageUC> scaled(images.size());
+	//for (size_t i = 0; i < images.size(); ++i)
+	//	scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
 
-	std::vector<Color3uc> palette;
-	double threshold = 15.0;
-	int maxPaletteSize = 16;
-	std::vector<Image<int>> paletteBuffers(images.size());
+  double threshold = 15.0;
+  size_t maxPaletteSize = 16;
+  size_t minContourSize = 100;
+  size_t featuresMax = 20;
+  size_t similarMax = 5;
+  size_t correlatedNum = 5;
 
-	for (size_t i = 0; i < images.size(); ++i)
-	{
-		scaled[i].make_palette(paletteBuffers[i], palette, threshold, maxPaletteSize);
-	}
-
-	normalize_palette(palette);
-
-	std::vector<ImageUC> paletteImages(images.size());
-	for (size_t i = 0; i < images.size(); ++i)
-	{
-		findBoundaries(paletteBuffers[i]);
-		imageToPalette(paletteBuffers[i], paletteImages[i], palette);
-
-		TCHAR fname[256];
-		_stprintf(fname, _T("..\\..\\..\\data\\temp\\palette_%d.png"), i);
-		PngImager::write(fname, paletteImages[i]);
-	}
-
-	std::vector<Features> features_arr(paletteBuffers.size());
-
-	for (size_t i = 0; i < paletteBuffers.size(); ++i)
-	{
-		vectorize(paletteBuffers[i], features_arr[i], 100, 30);
-
-		TCHAR fname[256];
-		_stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
-		saveContours(fname, features_arr[i]);
-	}
-
-	for (size_t i = 0; i < features_arr.size(); ++i)
-	{
-		Features & features = features_arr[i];
-		for (size_t j = 0; j < features.size(); ++j)
-			features[j].prepare();
-	}
-
-	size_t i0, i1;
-	double s = findClosestFeatures(features_arr[0], features_arr[1], i0, i1);
-
-	std::tcout << _T("Similarity = ") << s << std::endl;
-
-	saveContour(_T("..\\..\\..\\data\\temp\\closest_0.txt"), features_arr[0][i0].contour_);
-	saveContour(_T("..\\..\\..\\data\\temp\\closest_1.txt"), features_arr[1][i1].contour_);
+  align(images, threshold, maxPaletteSize, minContourSize, featuresMax, similarMax, correlatedNum);
 
   double dt = tt.getTimeMs();
 

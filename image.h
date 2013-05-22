@@ -4,6 +4,7 @@
 #include <math.h>
 #include <assert.h>
 #include "vec2.h"
+#include <limits>
 
 template <class T>
 class Color3
@@ -30,6 +31,11 @@ public:
 		g_ = other.g();
 		b_ = other.b();
 		return *this;
+	}
+
+	bool operator == (const Color3 & other) const
+	{
+		return r_ == other.r_ && g_ == other.g_ && b_ == other.b_;
 	}
 
 	operator bool () const
@@ -96,6 +102,14 @@ public:
 		return *this;
 	}
 
+	double module_diff(const Color3 & other) const
+	{
+		double dr = r_ - other.r_;
+		double dg = g_ - other.g_;
+		double db = b_ - other.b_;
+		return sqrt(dr*dr + dg*dg + db*db);
+	}
+
 	Color3 operator >> (int shift)
 	{
 		return Color3(r_>>shift, g_>>shift, b_>>shift);
@@ -147,6 +161,11 @@ public:
 
   C * get_row(int i) { return buffer() + width_ * i; }
   const C * get_row(int i) const { return buffer() + width_ * i; }
+
+	template <class C, class A>
+	friend bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image);
+
+	void make_palette(Image<int> & target_buffer, std::vector<C> & palette, double threshold, size_t maxPaletteSize) const;
 
   bool take_part(int x, int y, int npixels, Image & target_image) const;
 
@@ -305,6 +324,87 @@ double Image<C>::calc_deviation(const Image<C> & other) const
 	return deviation;
 }
 
+template <class C>
+void Image<C>::make_palette(Image<int> & target_buffer, std::vector<C> & palette, double threshold, size_t maxPaletteSize) const
+{
+	target_buffer.init(width(), height());
+
+	for (size_t i = 0; i < buffer_.size(); ++i)
+	{
+		double min_diff = std::numeric_limits<double>::max();
+		int nearest_index = -1;
+		for (size_t j = 0; j < palette.size(); ++j)
+		{
+			double diff = buffer_[i].module_diff(palette[j]);
+			if ( diff < min_diff )
+			{
+				nearest_index = j;
+				min_diff = diff;
+			}
+		}
+
+		int paletteIndex = -1;
+
+		// palette isn't initialized yet
+		if ( (nearest_index < 0) || (min_diff > threshold && palette.size() < maxPaletteSize) )
+		{
+			paletteIndex = palette.size();
+			palette.push_back(buffer_[i]);
+		}
+		else
+			paletteIndex = nearest_index;
+
+		if ( paletteIndex < 0 )
+			continue;
+
+		target_buffer.buffer()[i] = paletteIndex;
+	}
+}
+
+
+
+template <class C>
+void imageToPalette(const Image<int> & palette_buffer, Image<C> & target_image, std::vector<C> & palette)
+{
+	target_image.init(palette_buffer.width(), palette_buffer.height());
+	size_t size = palette_buffer.width() * palette_buffer.height();
+
+	for (size_t i = 0; i < size; ++i)
+	{
+		int index = palette_buffer.buffer()[i];
+		if ( index < 0 )
+			continue;
+		target_image.buffer()[i] = palette[index];
+	}
+}
+
+template <class C>
+void normalize_palette(std::vector<C> & palette)
+{
+	int n = palette.size() / 3;
+	if ( n > 0 )
+	{
+		int deltaC = 255 / n;
+		int rgb[3] = { 0, 0, 0 };
+
+		for (size_t i = 0; i < palette.size(); ++i)
+		{
+			rgb[0] += deltaC;
+			for (int j = 0; j < 3; ++j)
+			{
+				if ( rgb[j] < 256 )
+					break;
+
+				rgb[j] = 0;
+				rgb[(j+1) % 3] += deltaC;
+			}
+			if ( rgb[0] > 255 )
+				rgb[0] = 0;
+			palette[i] = C(rgb[0], rgb[1], rgb[2]);
+		}
+	}
+}
+
 
 template <class C, class A>
 double calc_variation(const Image<C> & image, C & average)
@@ -336,6 +436,66 @@ double calc_variation(const Image<C> & image, C & average)
 
   return var;
 }
+
+template <class C, class A>
+bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image)
+{
+	int dst_width  = source_image.width() /factor;
+	int dst_height = source_image.height()/factor;
+
+	if ( dst_width < 1 || dst_height < 1 )
+		return false;
+
+	// allocate target buffer
+	// pixels are unsigned, because we have to store sum of source pixels colors
+	std::vector<A> sum_buffer(dst_width*dst_height);
+
+	const C * src_buffer = source_image.buffer();
+	A * dst_buffer = &sum_buffer[0];
+
+	// sequentially scan source image row by row
+	for (int y = 0, y_dst = 0, y_counter = 0; y < source_image.height(); ++y, y_counter++, src_buffer += source_image.width())
+	{
+		// we need to go to the next line of target image
+		if ( y_counter >= factor )
+		{
+			y_counter = 0;
+			if ( ++y_dst >= dst_height )
+				break;
+
+			dst_buffer += dst_width;
+		}
+
+		const C * src_row = src_buffer;
+		A * dst_row = dst_buffer;
+
+		for (int x = 0, x_dst = 0, x_counter = 0; x < source_image.width(); ++x, x_counter++, src_row++)
+		{
+			// take the next taget pixel
+			if ( x_counter >= factor )
+			{
+				x_counter = 0;
+				if ( ++x_dst >= dst_width )
+					break;
+
+				dst_row++;
+			}
+
+			*dst_row += *src_row;
+		}
+	}
+
+	// copy average values of the result to the target
+	target_image.init(dst_width, dst_height);
+	C * target_buffer = target_image.buffer();
+	int factor2 = factor*factor;
+
+	for (size_t i = 0; i < sum_buffer.size(); ++i)
+		target_buffer[i] = sum_buffer[i]/factor2;
+
+	return true;
+}
+
 
 template <class C>
 void Image<C>::clear_data()

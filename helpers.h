@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <locale.h>
+#include <stdio.h>
 
 namespace std
 {
@@ -38,4 +39,27 @@ public:
   TestTimer();
 
   double getTimeMs() const;
+};
+
+class FileWrapper
+{
+	FILE * fp_;
+
+public:
+
+	FileWrapper(const TCHAR * filename, const TCHAR * mode) :	fp_(NULL)
+	{
+		_tfopen_s(&fp_, filename, mode);
+	}
+
+	operator FILE * ()
+	{
+		return fp_;
+	}
+
+	~FileWrapper()
+	{
+		if ( fp_ != NULL )
+			fclose(fp_);
+	}
 };

@@ -2,6 +2,7 @@
 
 #include "image.h"
 #include "vec2.h"
+#include "helpers.h"
 
 template <class C>
 class Feature
@@ -32,6 +33,11 @@ private:
 	double variation_;
 	C color_;
 };
+
+void findBoundaries(Image<int> & image);
+void vectorize(Image<int> & image, Contours & contours, size_t minLength);
+void saveCountours(const TCHAR * fname, Contours & contours);
+
 
 typedef Feature<Color3uc> FeatureUC;
 

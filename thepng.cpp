@@ -32,14 +32,52 @@ int _tmain(int argc, TCHAR **argv)
 		}
 	}
 
-  ImageAligner aligner(images, 8, 16);
+	//std::vector<ImageUC> scaled(images.size());
+	//for (size_t i = 0; i < images.size(); ++i)
+	//	scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
 
-  double diff = aligner.align(0, 1);
-  if ( diff < 0 )
-  {
-    std::tcout << _T("can't align images\n");
-    return -1;
-  }
+	std::vector<Color3uc> palette;
+	double threshold = 15.0;
+	int maxPaletteSize = 16;
+	std::vector<Image<int>> paletteBuffers(images.size());
+
+	for (size_t i = 0; i < images.size(); ++i)
+	{
+		images[i].make_palette(paletteBuffers[i], palette, threshold, maxPaletteSize);
+	}
+
+	normalize_palette(palette);
+
+	std::vector<ImageUC> paletteImages(images.size());
+	for (size_t i = 0; i < images.size(); ++i)
+	{
+		findBoundaries(paletteBuffers[i]);
+		imageToPalette(paletteBuffers[i], paletteImages[i], palette);
+
+		TCHAR fname[256];
+		_stprintf(fname, _T("..\\..\\..\\data\\temp\\palette_%d.png"), i);
+		PngImager::write(fname, paletteImages[i]);
+	}
+
+	for (size_t i = 0; i < paletteBuffers.size(); ++i)
+	{
+		Contours contours;
+		vectorize(paletteBuffers[i], contours, 20);
+
+		TCHAR fname[256];
+		_stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.png"), i);
+		saveCountours(fname, contours);
+	}
+
+
+  //ImageAligner aligner(images, 8, 16);
+
+  //double diff = aligner.align(0, 1);
+  //if ( diff < 0 )
+  //{
+  //  std::tcout << _T("can't align images\n");
+  //  return -1;
+  //}
 
   double dt = tt.getTimeMs();
 

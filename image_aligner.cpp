@@ -158,3 +158,122 @@ double ImageAligner::align(int index1, int index2)
 
   return difference;
 }
+
+void findBoundaries(Image<int> & image)
+{
+	int * buff = image.buffer();
+	int * prev = 0;
+	for (int y = 0; y < image.height(); ++y, buff += image.width())
+	{
+		int * buf = buff;
+		int * next = y < image.height()-1 ? buff + image.width() : 0;
+		int * nxt = next;
+		int * prv = prev;
+
+		for (int x = 0; x < image.width(); ++x, ++buf, ++nxt, ++prv)
+		{
+			int c = *buf;
+			if ( x > 0 && buf[-1] != -1 && c != buf[-1] )
+				continue;
+			if ( x < image.width()-1 && buf[1] != -1 && c != buf[1] )
+				continue;
+			if ( next )
+			{
+				if ( c != *nxt )
+					continue;
+				if ( x > 0 && c != nxt[-1] )
+					continue;
+				if ( x < image.width()-1 && c != nxt[1] )
+					continue;
+			}
+			if ( prev )
+			{
+				if ( *prv != -1 && c != *prv )
+					continue;
+				if ( x > 0 && prv[-1] != -1 && c != prv[-1] )
+					continue;
+				if ( x < image.width()-1 && prv[1] != -1 && c != prv[1] )
+					continue;
+			}
+			*buf = -1;
+		}
+
+		prev = buff;
+	}
+}
+
+void writeCountour(Image<int> & image, int x, int y, Contour & contour)
+{
+	int * buffer = image.buffer();
+	int n = x + image.width()*y;
+	bool ok = true;
+
+	for ( ; ok; )
+	{
+		contour.push_back( Vec2d(x, y) );
+		ok = false;
+
+		for (int j = -1; !ok && j < 2; ++j)
+		{
+			for (int i = -1; !ok && i < 2; ++i)
+			{
+				if ( i == 0 && j == 0 )
+					continue;
+
+				int x1 = x+i, y1 = y+j;
+				if ( x1 < 0 || x1 >= image.width() || y1 < 0 || y1 >= image.height() )
+					continue;
+
+				int n1 = x1 + y1*image.width();
+				if ( buffer[n1] == -1 || buffer[n1] != buffer[n] )
+					continue;
+
+				buffer[n1] = -1;
+				n = n1;
+				x = x1;
+				y = y1;
+				ok = true;
+				break;
+			}
+		}
+	}
+}
+
+void vectorize(Image<int> & image, Contours & contours, size_t minLength)
+{
+	int * buffer = image.buffer();
+
+	for (int y = 0; y < image.height(); ++y, buffer += image.width())
+	{
+		int * buff = buffer;
+		for (int x = 0; x < image.width(); ++x, buff++)
+		{
+			if ( *buff == -1 )
+				continue;
+
+			contours.push_back(Contour());
+
+			writeCountour(image, x, y, contours.back());
+			if ( contours.back().size() < minLength )
+				contours.pop_back();
+		}
+	}
+}
+
+void saveCountours(const TCHAR * fname, Contours & contours)
+{
+	FileWrapper ff(fname, _T("wt"));
+
+	for (size_t i = 0; i < contours.size(); ++i)
+	{
+		Contour & contour = contours[i];
+
+		_ftprintf(ff, _T("{\n"));
+		for (size_t j = 0; j < contour.size(); ++j)
+		{
+			Vec2i v = contour[j];
+			_ftprintf(ff, _T("{%d, %d}\n"), v.x(), v.y());
+		}
+		_ftprintf(ff, _T("}\n"));
+	}
+}

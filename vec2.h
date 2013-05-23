@@ -1,5 +1,7 @@
 #pragma once
 
+extern const double Pi_;
+
 template <class T>
 class Vec2
 {
@@ -56,6 +58,30 @@ public:
 
 	bool operator != (const Vec2<T> &v) const
 	{ return ( x_ != v.x_ ) ||( y_ != v.y_ ); }
+};
+
+template <class T>
+class Transform
+{
+	T angle_;
+	Vec2<T> tr_;
+	T sina_, cosa_;
+
+public:
+
+	Transform(const T & angle, const Vec2<T> & tr) : angle_(angle), tr_(tr)
+	{
+		sina_ = sin(angle_);
+		cosa_ = cos(angle_);
+	}
+
+	Vec2<T> operator () (const Vec2<T> & v) const
+	{
+		Vec2<T> r(cosa_*v.x() - sina_*v.y() + tr_.x(),
+			sina_*v.x() + cosa_*v.y() + tr_.y());
+
+		return r;
+	}
 };
 
 typedef Vec2<int> Vec2i;

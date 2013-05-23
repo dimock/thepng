@@ -14,13 +14,16 @@ struct Feature
 
 	void prepare();
 	void simplify(size_t step);
+
+	/// rough check. used only to find correlating fetaures
 	double similarity(const Feature & other) const;
-  bool operator < (const Feature & other) const;
+
+	bool operator < (const Feature & other) const;
 
 	double radius_;
 	Vec2d center_;
 	int colorIndex_;
-  Contour contour_;
+  Contour contour_, simple_;
 };
 
 typedef std::vector<Feature> Features;

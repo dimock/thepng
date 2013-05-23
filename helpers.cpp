@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <windows.h>
 
+const double Pi_ = 3.1415926;
+
 class char_replacer
 {
 	const TCHAR what_, by_;

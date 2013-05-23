@@ -73,12 +73,12 @@ bool Feature::operator < (const Feature & other) const
   return contour_.size() > other.contour_.size();
 }
 
-
+/// rough check. used only to find correlating fetaures
 double Feature::similarity(const Feature & other) const
 {
-	if ( contour_.size() == 0 || other.contour_.size() == 0 || colorIndex_ != other.colorIndex_ ||
-       contour_.size() > other.contour_.size()*2 ||
-       other.contour_.size() > contour_.size()*2 ||
+	if ( simple_.size() == 0 || other.simple_.size() == 0 || colorIndex_ != other.colorIndex_ ||
+       simple_.size() > other.simple_.size()*2 ||
+       other.simple_.size() > simple_.size()*2 ||
        radius_ > other.radius_*2 ||
        other.radius_ > radius_*2 )
 	{
@@ -87,29 +87,27 @@ double Feature::similarity(const Feature & other) const
 
   double diff = 0;
   Vec2d tr = other.center_ - center_;
-  for (size_t i = 0; i < contour_.size(); ++i)
+  for (size_t i = 0; i < simple_.size(); ++i)
   {
-    Vec2d p = contour_[i] + tr;
+    Vec2d p = simple_[i] + tr;
     double dist = std::numeric_limits<double>::max();
-    for (size_t j = 0; j < other.contour_.size(); ++j)
+    for (size_t j = 0; j < other.simple_.size(); ++j)
     {
-      const Vec2d & q = other.contour_[j];
+      const Vec2d & q = other.simple_[j];
       double d = (p - q).length();
       if ( d < dist )
         dist = d;
     }
     diff += dist;
   }
-  diff /= contour_.size();
+  diff /= simple_.size();
   return diff;
 }
 
 void Feature::simplify(size_t step)
 {
-  Contour temp;
 	for (size_t i = 0; i < contour_.size(); i += step)
-    temp.push_back(contour_[i]);
-  contour_.swap(temp);
+    simple_.push_back(contour_[i]);
 }
 
 //////////////////////////////////////////////////////////////////////////

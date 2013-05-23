@@ -6,6 +6,8 @@
 #include "vec2.h"
 #include <limits>
 
+//////////////////////////////////////////////////////////////////////////
+
 template <class T>
 class Color3
 {
@@ -124,6 +126,8 @@ typedef Color3<int> Color3i;
 typedef Color3<unsigned char> Color3uc;
 typedef Color3<unsigned> Color3u;
 
+//////////////////////////////////////////////////////////////////////////
+
 template <class C>
 class Image
 {
@@ -178,7 +182,11 @@ public:
 	template <class C, class A>
 	friend double calc_variation(const Image<C> & image, C & average);
 
-	void	 clear_data();
+	void clear_data()
+	{
+		for (size_t i = 0; i < buffer_.size(); ++i)
+			buffer_[i] = C();
+	}
 
 private:
 
@@ -361,7 +369,7 @@ void Image<C>::make_palette(Image<int> & target_buffer, std::vector<C> & palette
 	}
 }
 
-
+//////////////////////////////////////////////////////////////////////////
 
 template <class C>
 void imageToPalette(const Image<int> & palette_buffer, Image<C> & target_image, std::vector<C> & palette)
@@ -496,14 +504,7 @@ bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image
 	return true;
 }
 
-
-template <class C>
-void Image<C>::clear_data()
-{
-  for (size_t i = 0; i < buffer_.size(); ++i)
-    buffer_[i] = C();
-}
-
+//////////////////////////////////////////////////////////////////////////
 
 typedef Image<Color3uc> ImageUC;
 typedef std::vector<ImageUC> ImagesUC;

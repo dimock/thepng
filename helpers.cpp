@@ -19,16 +19,16 @@ public:
 	}
 };
 
-void replace_delimiter(std::tstring & pathname)
+void replace_backslashes(std::tstring & pathname)
 {
-	std::for_each(pathname.begin(), pathname.end(), char_replacer(dir_delimiter1, dir_delimiter));
+	std::for_each(pathname.begin(), pathname.end(), char_replacer(bk_slash, slash));
 }
 
 
 std::tstring extract_filename(const std::tstring & pathname)
 {
 	std::tstring filename = pathname;
-	size_t dl_pos = filename.find_last_of(dir_delimiter);
+	size_t dl_pos = filename.find_last_of(slash);
 	if ( dl_pos != std::tstring::npos )
 		filename.erase(0, dl_pos+1);
 	return filename;
@@ -37,7 +37,7 @@ std::tstring extract_filename(const std::tstring & pathname)
 std::tstring extract_dirname(const std::tstring & filename)
 {
 	std::tstring dirname = filename;
-	size_t dl_pos = dirname.find_last_of(dir_delimiter);
+	size_t dl_pos = dirname.find_last_of(slash);
 	if ( dl_pos != std::tstring::npos )
 	{
 		dirname.erase(dl_pos+1);

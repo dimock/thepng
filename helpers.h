@@ -5,6 +5,7 @@
 #include <iostream>
 #include <locale.h>
 #include <stdio.h>
+#include "vec2.h"
 
 namespace std
 {
@@ -20,12 +21,12 @@ namespace std
 }
 
 
-const TCHAR dir_delimiter = L'/';
-const TCHAR dir_delimiter1 = L'\\';
+const TCHAR slash = L'/';
+const TCHAR bk_slash = L'\\';
 const TCHAR point = L'.';
 const TCHAR asteric = L'*';
 
-void replace_delimiter(std::tstring & pathname);
+void replace_backslashes(std::tstring & pathname);
 std::tstring extract_filename(const std::tstring & pathname);
 std::tstring extract_dirname(const std::tstring & filename);
 

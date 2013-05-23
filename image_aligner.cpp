@@ -1,18 +1,56 @@
 #include "image_aligner.h"
-#include "helpers.h"
 #include "png_imager.h"
 #include <algorithm>
 #include <stdlib.h>
 #include <time.h>
 #include <limits>
 
+//////////////////////////////////////////////////////////////////////////
+
+
+void saveContours(const TCHAR * fname, Features & features)
+{
+	FileWrapper ff(fname, _T("wt"));
+	if ( !ff )
+		return;
+
+	for (size_t i = 0; i < features.size(); ++i)
+	{
+		Contour & contour = features[i].contour_;
+
+		_ftprintf(ff, _T("{\n"));
+		for (size_t j = 0; j < contour.size(); ++j)
+		{
+			Vec2i v = contour[j];
+			_ftprintf(ff, _T("  {%d, %d}\n"), v.x(), v.y());
+		}
+		_ftprintf(ff, _T("}\n"));
+	}
+}
+
+void saveContour(const TCHAR * fname, Contour & contour)
+{
+	FileWrapper ff(fname, _T("wt"));
+	if ( !ff )
+		return;
+
+	_ftprintf(ff, _T("{\n"));
+	for (size_t j = 0; j < contour.size(); ++j)
+	{
+		Vec2i v = contour[j];
+		_ftprintf(ff, _T("  {%d, %d}\n"), v.x(), v.y());
+	}
+	_ftprintf(ff, _T("}\n"));
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 void Feature::prepare()
 {
 	if ( contour_.empty() )
 		return;
 
-  simplify(contour_.size() / 4);
+  simplify(4);
 
 	center_ = contour_[0];
 	for (size_t i = 1; i < contour_.size(); ++i)
@@ -43,7 +81,9 @@ double Feature::similarity(const Feature & other) const
        other.contour_.size() > contour_.size()*2 ||
        radius_ > other.radius_*2 ||
        other.radius_ > radius_*2 )
+	{
 		return -1.0;
+	}
 
   double diff = 0;
   Vec2d tr = other.center_ - center_;
@@ -64,30 +104,70 @@ double Feature::similarity(const Feature & other) const
   return diff;
 }
 
-void Feature::simplify(size_t numPoints)
+void Feature::simplify(size_t step)
 {
-	while ( contour_.size() > numPoints )
-	{
-    Contour temp;
-		for (size_t i = 0; i < contour_.size(); i += 2)
-      temp.push_back(contour_[i]);
-
-    contour_.swap(temp);
-	}
+  Contour temp;
+	for (size_t i = 0; i < contour_.size(); i += step)
+    temp.push_back(contour_[i]);
+  contour_.swap(temp);
 }
 
-class CompareSimilarity
-{
-public:
+//////////////////////////////////////////////////////////////////////////
 
-  bool operator () (const std::pair<int, double> & pr1, const std::pair<int, double> & pr2) const
+void ImageAligner::align(std::vector<ImageUC> & images)
+{
+  std::vector<Color3uc> palette;
+  std::vector<Image<int>> paletteBuffers(images.size());
+
+  for (size_t i = 0; i < images.size(); ++i)
+    images[i].make_palette(paletteBuffers[i], palette, params_.threshold, params_.maxPaletteSize);
+
+  normalize_palette(palette);
+
+  std::vector<ImageUC> paletteImages(images.size());
+  for (size_t i = 0; i < images.size(); ++i)
   {
-    return pr1.second < pr2.second;
+    findBoundaries(paletteBuffers[i]);
+    imageToPalette(paletteBuffers[i], paletteImages[i], palette);
+
+#ifdef SAVE_DEBUG_INFO_
+    TCHAR fname[256];
+    _stprintf(fname, _T("..\\..\\..\\data\\temp\\palette_%d.png"), i);
+    PngImager::write(fname, paletteImages[i]);
+#endif
   }
-};
+
+  std::vector<Features> features_arr(paletteBuffers.size());
+
+  for (size_t i = 0; i < paletteBuffers.size(); ++i)
+  {
+    vectorize(paletteBuffers[i], features_arr[i]);
+
+#ifdef SAVE_DEBUG_INFO_
+    TCHAR fname[256];
+    _stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
+    saveContours(fname, features_arr[i]);
+#endif
+  }
+
+  for (size_t i = 0; i < features_arr.size(); ++i)
+  {
+    Features & features = features_arr[i];
+    for (size_t j = 0; j < features.size(); ++j)
+      features[j].prepare();
+  }
+
+  size_t index1, index2;
+  findCorrelatedFeatures(features_arr[0], features_arr[1], index1, index2);
+
+#ifdef SAVE_DEBUG_INFO_
+  saveContour( _T("..\\..\\..\\data\\temp\\correlated1.txt"), features_arr[0][index1].contour_ );
+  saveContour( _T("..\\..\\..\\data\\temp\\correlated2.txt"), features_arr[1][index2].contour_ );
+#endif
+}
 
 //////////////////////////////////////////////////////////////////////////
-void findBoundaries(Image<int> & image)
+void ImageAligner::findBoundaries(Image<int> & image)
 {
 	int * buff = image.buffer();
 	int * prev = 0;
@@ -130,7 +210,7 @@ void findBoundaries(Image<int> & image)
 	}
 }
 
-void writeCountour(Image<int> & image, int x, int y, Contour & contour)
+void ImageAligner::buildCountour(Image<int> & image, int x, int y, Contour & contour)
 {
 	static const int offsets[8][2] = { {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}, {1, 0}, {1, -1}, {0, -1} };
 
@@ -183,17 +263,7 @@ void writeCountour(Image<int> & image, int x, int y, Contour & contour)
 	}
 }
 
-class CompareContours
-{
-public:
-
-	bool operator () (const Contour & c1, const Contour & c2) const
-	{
-		return c1.size() > c2.size();
-	}
-};
-
-void vectorize(Image<int> & image, Features & features, size_t minLength, size_t featuresMax)
+void ImageAligner::vectorize(Image<int> & image, Features & features)
 {
 	int * buffer = image.buffer();
 
@@ -207,97 +277,20 @@ void vectorize(Image<int> & image, Features & features, size_t minLength, size_t
 
 			features.push_back(Feature(*buff));
 
-			writeCountour(image, x, y, features.back().contour_);
-			if ( features.back().contour_.size() < minLength )
+			buildCountour(image, x, y, features.back().contour_);
+
+			if ( features.back().contour_.size() < params_.minContourSize )
 				features.pop_back();
 		}
 	}
 
 	std::sort(features.begin(), features.end());
-	if ( features.size() > featuresMax )
-		features.erase(features.begin()+featuresMax, features.end());
+
+	if ( features.size() > params_.featuresMax )
+		features.erase(features.begin()+params_.featuresMax, features.end());
 }
 
-void saveContours(const TCHAR * fname, Features & features)
-{
-	FileWrapper ff(fname, _T("wt"));
-
-	for (size_t i = 0; i < features.size(); ++i)
-	{
-		Contour & contour = features[i].contour_;
-
-		_ftprintf(ff, _T("{\n"));
-		for (size_t j = 0; j < contour.size(); ++j)
-		{
-			Vec2i v = contour[j];
-			_ftprintf(ff, _T("  {%d, %d}\n"), v.x(), v.y());
-		}
-		_ftprintf(ff, _T("}\n"));
-	}
-}
-
-void saveContour(const TCHAR * fname, Contour & contour)
-{
-	FileWrapper ff(fname, _T("wt"));
-
-	_ftprintf(ff, _T("{\n"));
-	for (size_t j = 0; j < contour.size(); ++j)
-	{
-		Vec2i v = contour[j];
-		_ftprintf(ff, _T("  {%d, %d}\n"), v.x(), v.y());
-	}
-	_ftprintf(ff, _T("}\n"));
-}
-
-//////////////////////////////////////////////////////////////////////////
-void align(std::vector<ImageUC> & images, double threshold, size_t maxPaletteSize, size_t minContourSize, size_t featuresMax, size_t similarMax, size_t correlatedNum)
-{
-  std::vector<Color3uc> palette;
-  std::vector<Image<int>> paletteBuffers(images.size());
-
-  for (size_t i = 0; i < images.size(); ++i)
-    images[i].make_palette(paletteBuffers[i], palette, threshold, maxPaletteSize);
-
-  normalize_palette(palette);
-
-  std::vector<ImageUC> paletteImages(images.size());
-  for (size_t i = 0; i < images.size(); ++i)
-  {
-    findBoundaries(paletteBuffers[i]);
-    imageToPalette(paletteBuffers[i], paletteImages[i], palette);
-
-    TCHAR fname[256];
-    _stprintf(fname, _T("..\\..\\..\\data\\temp\\palette_%d.png"), i);
-    PngImager::write(fname, paletteImages[i]);
-  }
-
-  std::vector<Features> features_arr(paletteBuffers.size());
-
-  for (size_t i = 0; i < paletteBuffers.size(); ++i)
-  {
-    vectorize(paletteBuffers[i], features_arr[i], minContourSize, featuresMax);
-
-    TCHAR fname[256];
-    _stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
-    saveContours(fname, features_arr[i]);
-  }
-
-  for (size_t i = 0; i < features_arr.size(); ++i)
-  {
-    Features & features = features_arr[i];
-    for (size_t j = 0; j < features.size(); ++j)
-      features[j].prepare();
-  }
-
-  size_t index1, index2;
-  findCorrelatedFeatures(features_arr[0], features_arr[1], index1, index2);
-
-  saveContour( _T("..\\..\\..\\data\\temp\\correlated1.txt"), features_arr[0][index1].contour_ );
-  saveContour( _T("..\\..\\..\\data\\temp\\correlated2.txt"), features_arr[1][index2].contour_ );
-}
-
-//////////////////////////////////////////////////////////////////////////
-void findCorrelatedFeatures(Features & features, Features & other, size_t & index0, size_t & index1)
+void ImageAligner::findCorrelatedFeatures(Features & features, Features & other, size_t & index0, size_t & index1)
 {
   double sim = std::numeric_limits<double>::max();
 

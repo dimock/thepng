@@ -4,16 +4,16 @@
 #include <iomanip>
 #include <math.h>
 #include <float.h>
-#include "vec2.h"
 
-int _tmain(int argc, TCHAR **argv)
+
+int _tmain(int argc, TCHAR ** argv)
 {
 	setlocale(0, "");
 
-	if (argc < 3)
+	if ( argc < 3 )
 	{
 		std::tstring exename(argv[0]);
-		replace_delimiter(exename);
+		replace_backslashes(exename);
 		std::tstring exefilename = extract_filename(exename);
 		std::tcout << _T("usage:\n  ") << exefilename.c_str() << _T(" source1.png source2.png ... [need at least 2 files]") << std::endl;
 		return -1;
@@ -32,18 +32,8 @@ int _tmain(int argc, TCHAR **argv)
 		}
 	}
 
-	//std::vector<ImageUC> scaled(images.size());
-	//for (size_t i = 0; i < images.size(); ++i)
-	//	scale_xy<Color3uc, Color3u>(2, images[i], scaled[i]);
-
-  double threshold = 15.0;
-  size_t maxPaletteSize = 16;
-  size_t minContourSize = 100;
-  size_t featuresMax = 20;
-  size_t similarMax = 5;
-  size_t correlatedNum = 5;
-
-  align(images, threshold, maxPaletteSize, minContourSize, featuresMax, similarMax, correlatedNum);
+	ImageAligner aligner;
+  aligner.align(images);
 
   double dt = tt.getTimeMs();
 

@@ -25,10 +25,8 @@ struct Feature
 
 typedef std::vector<Feature> Features;
 
-class Params
+struct Params
 {
-public:
-
 	Params() :
 		threshold(15.0),
 		maxPaletteSize(16),
@@ -49,6 +47,28 @@ public:
 
 };
 
+struct Correlation
+{
+	Correlation() : index1_(-1), index2_(-1),
+		correlationCoefficient_(-1.0), ok_(false)
+	{
+	}
+
+	Correlation(int i1, int i2, double coeff) : index1_(i1), index2_(i2),
+		correlationCoefficient_(coeff), ok_(true)
+	{
+	}
+
+	bool operator < (const Correlation & other) const
+	{
+		return this->correlationCoefficient_ < other.correlationCoefficient_;
+	}
+
+	bool ok_;
+	int index1_, index2_;
+	double correlationCoefficient_;
+};
+
 class ImageAligner
 {
 private:
@@ -56,7 +76,7 @@ private:
 	void findBoundaries(Image<int> & image);
 	void buildCountour(Image<int> & image, int x, int y, Contour & contour);
 	void vectorize(Image<int> & image, Features & features);
-	void findCorrelatedFeatures(Features & features, Features & other, size_t & index0, size_t & index1);
+	void findCorrelatedFeatures(Features & features, Features & other, std::vector<Correlation> & correlations);
 
 public:
 

@@ -42,6 +42,9 @@ public:
 
 	Vec2<T> operator - () const { return Vec2<T>(-x_, -y_); }
 
+	// simplified cross-product operator. returns only Z-direction
+	double operator ^ (const Vec2<T> & v) const { return x_*v.y_ - y_*v.x_; }
+
 	T length () const { return sqrt(x_*x_ + y_*y_); }
 	T length2() const { return x_*x_ + y_*y_; }
 	Vec2<T> &  norm() { operator *= (1.0f/length()); return *this; }
@@ -53,7 +56,7 @@ public:
 
 	bool operator != (const Vec2<T> &v) const
 	{ return ( x_ != v.x_ ) ||( y_ != v.y_ ); }
-
 };
+
 typedef Vec2<int> Vec2i;
 typedef Vec2<double> Vec2d;

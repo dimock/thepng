@@ -157,12 +157,21 @@ void ImageAligner::align(std::vector<ImageUC> & images)
       features[j].prepare();
   }
 
-  size_t index1, index2;
-  findCorrelatedFeatures(features_arr[0], features_arr[1], index1, index2);
+	std::vector<Correlation> correlations;
+  findCorrelatedFeatures(features_arr[0], features_arr[1], correlations);
 
 #ifdef SAVE_DEBUG_INFO_
-  saveContour( _T("..\\..\\..\\data\\temp\\correlated1.txt"), features_arr[0][index1].contour_ );
-  saveContour( _T("..\\..\\..\\data\\temp\\correlated2.txt"), features_arr[1][index2].contour_ );
+	for (size_t i = 0; i < correlations.size(); ++i)
+	{
+		Features corrFeatures;
+		Correlation & corr = correlations[i];
+		corrFeatures.push_back(features_arr[0][corr.index1_]);
+		corrFeatures.push_back(features_arr[1][corr.index2_]);
+
+		TCHAR fname[256];
+		_stprintf(fname, _T("..\\..\\..\\data\\temp\\correlated_%d.txt"), i);
+		saveContours(fname , corrFeatures );
+	}
 #endif
 }
 
@@ -290,10 +299,8 @@ void ImageAligner::vectorize(Image<int> & image, Features & features)
 		features.erase(features.begin()+params_.featuresMax, features.end());
 }
 
-void ImageAligner::findCorrelatedFeatures(Features & features, Features & other, size_t & index0, size_t & index1)
+void ImageAligner::findCorrelatedFeatures(Features & features, Features & other, std::vector<Correlation> & correlations)
 {
-  double sim = std::numeric_limits<double>::max();
-
   for (size_t i = 0; i < features.size(); i++)
   {
     Feature & one = features[i];
@@ -302,12 +309,93 @@ void ImageAligner::findCorrelatedFeatures(Features & features, Features & other,
       Feature & two = other[j];
 
       double s = one.similarity(two);
-      if ( s > 0 && s < sim )
-      {
-        sim = s;
-        index0 = i;
-        index1 = j;
-      }
+			if ( s < 0 )
+				continue;
+
+			correlations.push_back( Correlation(i, j, s) );
     }
   }
+
+	/// sort features by correlation coefficient in ascending order
+	std::sort(correlations.begin(), correlations.end());
+
+	/// 1. remove invalid features by corresponding distances
+
+	/// always mark j-feature to remove, because it has worse correlation than i-th
+	for (size_t i = 0; i < correlations.size(); ++i)
+	{
+		Correlation & corr_i = correlations[i];
+		if ( !corr_i.ok_ )
+			continue;
+
+		Feature & one_i = features[corr_i.index1_];
+		Feature & two_i = other[corr_i.index2_];
+
+		for (size_t j = i+1; j < correlations.size(); ++j)
+		{
+			Correlation & corr_j = correlations[j];
+			if ( !corr_j.ok_ )
+				continue;
+
+			// can be used only once
+			if ( corr_i.index1_ == corr_j.index1_ ||
+					 corr_i.index2_ == corr_j.index2_ )
+			{
+				corr_j.ok_ = false;
+				continue;
+			}
+
+			Feature & one_j = features[corr_j.index1_];
+			Feature & two_j = other[corr_j.index2_];
+
+			double dist_one = (one_i.center_ - one_j.center_).length();
+			double dist_two = (two_i.center_ - two_j.center_).length();
+
+			/// distances between corresponding features pairs are too different
+			double d = abs(dist_one-dist_two)/(dist_one+dist_two);
+			if ( d > 0.05 )
+			{
+				correlations[j].ok_ = false;
+			}
+		}
+	}
+
+	for (std::vector<Correlation>::iterator i = correlations.begin(); i != correlations.end(); )
+	{
+		if ( i->ok_ )
+			i++;
+		else
+			i = correlations.erase(i);
+	}
+
+	if ( correlations.size() > params_.correlatedNum )
+		correlations.erase( correlations.begin() + params_.correlatedNum, correlations.end() );
+
+
+	/// 2. remove invalid features using directions
+
+	if ( correlations.size() < 3 )
+		return;
+
+	Correlation & corr0 = correlations[0];
+	Correlation & corr1 = correlations[1];
+
+	Vec2d dir1 = features[corr0.index1_].center_ - features[corr1.index1_].center_;
+	Vec2d dir2 = other[corr0.index2_].center_ - other[corr1.index2_].center_;
+
+	for (std::vector<Correlation>::iterator i = correlations.begin()+2; i != correlations.end(); )
+	{
+		Correlation & corr_i = *i;
+
+		Vec2d dir1_i = features[corr_i.index1_].center_ - features[corr0.index1_].center_;
+		Vec2d dir2_i = other[corr_i.index2_].center_ - other[corr0.index2_].center_;
+
+		double z1 = dir1_i ^ dir1;
+		double z2 = dir2_i ^ dir2;
+
+		if ( z1*z2 >= 0 )
+			++i;
+		else
+			i = correlations.erase(i);
+	}
 }

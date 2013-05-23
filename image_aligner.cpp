@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <limits>
+#include "kdtree.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -87,17 +88,22 @@ double Feature::similarity(const Feature & other) const
 
   double diff = 0;
   Vec2d tr = other.center_ - center_;
-  for (size_t i = 0; i < simple_.size(); ++i)
+
+	KdTree kdtree;
+
+	Contour contour = other.simple_;
+	kdtree.build(contour);
+	int count = 0;
+
+  for (size_t i = 0; i < simple_.size(); ++i, ++count)
   {
     Vec2d p = simple_[i] + tr;
-    double dist = std::numeric_limits<double>::max();
-    for (size_t j = 0; j < other.simple_.size(); ++j)
-    {
-      const Vec2d & q = other.simple_[j];
-      double d = (p - q).length();
-      if ( d < dist )
-        dist = d;
-    }
+		int itersN = 0;
+		kdNode * node = kdtree.searchNN(p, itersN);
+		if ( !node )
+			continue;
+
+    double dist = (node->p_ - p).length();
     diff += dist;
   }
   diff /= simple_.size();

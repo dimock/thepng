@@ -4,9 +4,6 @@
 #include "helpers.h"
 
 
-typedef std::vector<Vec2d> Contour;
-typedef std::vector<Contour> Contours;
-
 struct Feature
 {
 	Feature(int colorIndex = -1) : colorIndex_(colorIndex), radius_(0.0)

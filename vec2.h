@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <math.h>
+
 extern const double Pi_;
 
 template <class T>
@@ -86,3 +89,6 @@ public:
 
 typedef Vec2<int> Vec2i;
 typedef Vec2<double> Vec2d;
+
+typedef std::vector<Vec2d> Contour;
+typedef std::vector<Contour> Contours;

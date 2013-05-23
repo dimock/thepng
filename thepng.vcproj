@@ -352,6 +352,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\kdtree.cpp"
+			>
+		</File>
+		<File
+			RelativePath=".\kdtree.h"
+			>
+		</File>
+		<File
 			RelativePath=".\png_imager.cpp"
 			>
 		</File>

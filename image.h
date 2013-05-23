@@ -246,8 +246,8 @@ void rotate(double angle, const Vec2i & translate, const Image<C> & source_image
 	int dst_x0 = -dst_xcenter;
 	int dst_y0 = -dst_ycenter;
 
-	int src_x0 = (dst_x0*cosa - dst_y0*sina + src_xcenter - translate.x()) * SCALE;
-	int src_y0 = (dst_x0*sina + dst_y0*cosa + src_ycenter - translate.y()) * SCALE;
+	int src_x0 = (dst_x0*cosa - dst_y0*sina + /*src_xcenter - */translate.x()) * SCALE;
+	int src_y0 = (dst_x0*sina + dst_y0*cosa + /*src_ycenter - */translate.y()) * SCALE;
 
 	int dxx = cosa*SCALE;
 	int dyx = sina*SCALE;

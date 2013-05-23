@@ -21,6 +21,9 @@ class KdTree
 	kdNode * buildBranch(Vec2d * from, Vec2d * to, kdNode * parent);
 	kdNode * searchNN(kdNode * best, kdNode * current, const Vec2d & p, double & bestDist, int & steps) const;
 
+	// copy is forbidden
+	KdTree(const KdTree & ) {}
+
 public:
 
 	KdTree();

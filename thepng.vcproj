@@ -332,6 +332,10 @@
 	</References>
 	<Files>
 		<File
+			RelativePath=".\goldsect.h"
+			>
+		</File>
+		<File
 			RelativePath=".\helpers.cpp"
 			>
 		</File>

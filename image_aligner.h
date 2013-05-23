@@ -28,6 +28,7 @@ typedef std::vector<Feature> Features;
 struct Params
 {
 	Params() :
+		deltaAngle(15.0),
 		threshold(15.0),
 		maxPaletteSize(16),
 		minContourSize(100),
@@ -37,7 +38,7 @@ struct Params
 	{
 	}
 
-	double threshold;
+	double threshold, deltaAngle;
 
 	size_t maxPaletteSize,
 				 minContourSize,
@@ -76,7 +77,12 @@ private:
 	void findBoundaries(Image<int> & image);
 	void buildCountour(Image<int> & image, int x, int y, Contour & contour);
 	void vectorize(Image<int> & image, Features & features);
-	void findCorrelatedFeatures(Features & features, Features & other, std::vector<Correlation> & correlations);
+	void findCorrelatedFeatures(const Features & features, const Features & other, std::vector<Correlation> & correlations);
+
+	bool findAlignment(const Features & features1, const Features & features2,
+		const Vec2d & center1, const Vec2d & center2,
+		const std::vector<Correlation> & correlations,
+		Transformd & tr12);
 
 public:
 
@@ -85,10 +91,16 @@ public:
 		params_ = params;
 	}
 
+	ImageAligner(std::vector<ImageUC> & images) : images_(images)
+	{
+	}
+
 	/// do alignment with given params
-	void align(std::vector<ImageUC> & images);
+	bool align();
 
 private:
+
+	std::vector<ImageUC> & images_;
 
 	Params params_;
 };

@@ -5,6 +5,7 @@
 #include <time.h>
 #include <limits>
 #include "kdtree.h"
+#include "goldsect.h"
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -95,7 +96,7 @@ double Feature::similarity(const Feature & other) const
 	kdtree.build(contour);
 	int count = 0;
 
-  for (size_t i = 0; i < simple_.size(); ++i, ++count)
+  for (size_t i = 0; i < simple_.size(); ++i)
   {
     Vec2d p = simple_[i] + tr;
 		int itersN = 0;
@@ -105,8 +106,13 @@ double Feature::similarity(const Feature & other) const
 
     double dist = (node->p_ - p).length();
     diff += dist;
+		++count;
   }
-  diff /= simple_.size();
+	
+	if ( !count )
+		return std::numeric_limits<double>::max();
+
+  diff /= count;
   return diff;
 }
 
@@ -118,18 +124,18 @@ void Feature::simplify(size_t step)
 
 //////////////////////////////////////////////////////////////////////////
 
-void ImageAligner::align(std::vector<ImageUC> & images)
+bool ImageAligner::align()
 {
   std::vector<Color3uc> palette;
-  std::vector<Image<int>> paletteBuffers(images.size());
+  std::vector<Image<int>> paletteBuffers(images_.size());
 
-  for (size_t i = 0; i < images.size(); ++i)
-    images[i].make_palette(paletteBuffers[i], palette, params_.threshold, params_.maxPaletteSize);
+  for (size_t i = 0; i < images_.size(); ++i)
+    images_[i].make_palette(paletteBuffers[i], palette, params_.threshold, params_.maxPaletteSize);
 
   normalize_palette(palette);
 
-  std::vector<ImageUC> paletteImages(images.size());
-  for (size_t i = 0; i < images.size(); ++i)
+  std::vector<ImageUC> paletteImages(images_.size());
+  for (size_t i = 0; i < images_.size(); ++i)
   {
     findBoundaries(paletteBuffers[i]);
     imageToPalette(paletteBuffers[i], paletteImages[i], palette);
@@ -164,6 +170,9 @@ void ImageAligner::align(std::vector<ImageUC> & images)
 	std::vector<Correlation> correlations;
   findCorrelatedFeatures(features_arr[0], features_arr[1], correlations);
 
+	if ( correlations.empty() )
+		return false;
+
 #ifdef SAVE_DEBUG_INFO_
 	for (size_t i = 0; i < correlations.size(); ++i)
 	{
@@ -177,6 +186,20 @@ void ImageAligner::align(std::vector<ImageUC> & images)
 		saveContours(fname , corrFeatures );
 	}
 #endif
+
+	Transformd tr;
+	Vec2d center1( images_[0].width()/2.0, images_[0].height()/2.0 );
+	Vec2d center2( images_[1].width()/2.0, images_[1].height()/2.0 );
+
+	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr);
+
+#ifdef SAVE_DEBUG_INFO_
+	ImageUC rotated(images_[1].width(), images_[1].height());
+	rotate<Color3uc, Color3u>(tr.angle(), tr.tr(), images_[1], rotated);
+	PngImager::write(_T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
+#endif
+
+	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -303,14 +326,14 @@ void ImageAligner::vectorize(Image<int> & image, Features & features)
 		features.erase(features.begin()+params_.featuresMax, features.end());
 }
 
-void ImageAligner::findCorrelatedFeatures(Features & features, Features & other, std::vector<Correlation> & correlations)
+void ImageAligner::findCorrelatedFeatures(const Features & features, const Features & other, std::vector<Correlation> & correlations)
 {
   for (size_t i = 0; i < features.size(); i++)
   {
-    Feature & one = features[i];
+    const Feature & one = features[i];
     for (size_t j = 0; j < other.size(); ++j)
     {
-      Feature & two = other[j];
+      const Feature & two = other[j];
 
       double s = one.similarity(two);
 			if ( s < 0 )
@@ -332,8 +355,8 @@ void ImageAligner::findCorrelatedFeatures(Features & features, Features & other,
 		if ( !corr_i.ok_ )
 			continue;
 
-		Feature & one_i = features[corr_i.index1_];
-		Feature & two_i = other[corr_i.index2_];
+		const Feature & one_i = features[corr_i.index1_];
+		const Feature & two_i = other[corr_i.index2_];
 
 		for (size_t j = i+1; j < correlations.size(); ++j)
 		{
@@ -349,8 +372,8 @@ void ImageAligner::findCorrelatedFeatures(Features & features, Features & other,
 				continue;
 			}
 
-			Feature & one_j = features[corr_j.index1_];
-			Feature & two_j = other[corr_j.index2_];
+			const Feature & one_j = features[corr_j.index1_];
+			const Feature & two_j = other[corr_j.index2_];
 
 			double dist_one = (one_i.center_ - one_j.center_).length();
 			double dist_two = (two_i.center_ - two_j.center_).length();
@@ -402,4 +425,121 @@ void ImageAligner::findCorrelatedFeatures(Features & features, Features & other,
 		else
 			i = correlations.erase(i);
 	}
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+class CorrelationFunction
+{
+	Contour & contour1_;
+	Contour & contour2_;
+	Vec2d center2_;
+	KdTree kdtree_;
+
+public:
+
+	CorrelationFunction(Contour & contour1, Contour & contour2, const Vec2d & center2) :
+		contour1_(contour1), contour2_(contour2), center2_(center2)
+	{
+		kdtree_.build(contour1_);
+	}
+
+	double operator () (double * prm, int n) const
+	{
+		assert(n >= 3);
+		
+		Vec2d v(prm[0], prm[1]);
+		double angle = prm[2];
+
+		Transformd tr(angle, v+center2_);
+
+		int itersN;
+		double diff = 0;
+		int count = 0;
+		for (size_t i = 0; i < contour2_.size(); ++i)
+		{
+			Vec2d p = tr(contour2_[i]);
+			kdNode * node = kdtree_.searchNN(p, itersN);
+			if ( !node )
+				continue;
+
+			double d = (p - node->p_).length();
+			diff += d;
+			count++;
+		}
+
+		assert( count > 0 );
+
+		diff /= count;
+		return diff;
+	}
+};
+
+bool ImageAligner::findAlignment(const Features & features1, const Features & features2,
+																 const Vec2d & center1, const Vec2d & center2,
+																 const std::vector<Correlation> & correlations,
+																 Transformd & tr12)
+{
+	Contour contour1, contour2;
+
+	Vec2d startTr;
+	double startAngle = 0;
+	double dxy = images_[0].width()/4.0;
+
+	if ( correlations.size() > 1 )
+	{
+		const Correlation & corr0 = correlations[0];
+		const Correlation & corr1 = correlations[1];
+
+		Vec2d dir1 = features1[corr0.index1_].center_ - features1[corr1.index1_].center_;
+		Vec2d dir2 = features2[corr0.index2_].center_ - features2[corr1.index2_].center_;
+
+		dir1.norm();
+		dir2.norm();
+
+		double sina = dir2 ^ dir1;
+		startAngle = asin(sina);
+	}
+
+	for (size_t i = 0; i < correlations.size(); ++i)
+	{
+		const Correlation & corr = correlations[i];
+		const Feature & f1 = features1[corr.index1_];
+		const Feature & f2 = features2[corr.index2_];
+
+		startTr += f1.center_ - f2.center_;
+
+		if ( f1.radius_ < dxy )
+			dxy = f1.radius_;
+
+		Contour * contours [] = { &contour1, &contour2 };
+		const Contour * fcontours[] = { &f1.contour_, &f2.contour_ };
+
+		for (int j = 0; j < 2; ++j)
+		{
+			size_t start = contours[j]->size();
+			contours[j]->resize(start+fcontours[j]->size());
+			std::copy(fcontours[j]->begin(), fcontours[j]->end(), contours[j]->begin()+start);
+		}
+	}
+
+	dxy *= 0.25;
+	startTr *= 1.0/correlations.size();
+
+	for (size_t i = 0; i < contour2.size(); ++i)
+		contour2[i] -= center2;
+
+	double argsMin[] = { startTr.x() - dxy, startTr.y() - dxy, startAngle-params_.deltaAngle*Pi_/180.0 };
+	double argsMax[] = { startTr.x() + dxy, startTr.y() + dxy, startAngle+params_.deltaAngle*Pi_/180.0 };
+	double errs[] = { dxy*0.1, dxy*0.1, params_.deltaAngle*0.1 };
+	double args[] = { startTr.x(), startTr.y(), startAngle };
+
+	CorrelationFunction cf(contour1, contour2, center2);
+	GoldSection<double, CorrelationFunction> gs(cf, argsMin, argsMax, 3);
+
+	double diff0 = cf(args, 3);
+	double diff = gs.calc(10, args, errs);
+
+	tr12 = Transformd(args[2], Vec2d(args[0], args[1]) + center2);
+	return true;
 }

@@ -32,8 +32,8 @@ int _tmain(int argc, TCHAR ** argv)
 		}
 	}
 
-	ImageAligner aligner;
-  aligner.align(images);
+	ImageAligner aligner(images);
+  aligner.align();
 
   double dt = tt.getTimeMs();
 

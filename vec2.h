@@ -72,6 +72,10 @@ class Transform
 
 public:
 
+	Transform() : angle_(0), sina_(0), cosa_(1)
+	{
+	}
+
 	Transform(const T & angle, const Vec2<T> & tr) : angle_(angle), tr_(tr)
 	{
 		sina_ = sin(angle_);
@@ -85,10 +89,15 @@ public:
 
 		return r;
 	}
+
+	double const angle () const { return angle_; }
+	Vec2<T> tr() const { return tr_; }
 };
 
 typedef Vec2<int> Vec2i;
 typedef Vec2<double> Vec2d;
+
+typedef Transform<double> Transformd;
 
 typedef std::vector<Vec2d> Contour;
 typedef std::vector<Contour> Contours;

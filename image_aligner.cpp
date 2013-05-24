@@ -413,6 +413,7 @@ void ImageAligner::buildCountour(Image<int> & image, int x, int y, Contour & con
 void ImageAligner::vectorize(Image<int> & image, Features & features)
 {
 	int * buffer = image.buffer();
+  int maxContourSize = image.width()+image.height();
 
 	for (int y = 0; y < image.height(); ++y, buffer += image.width())
 	{
@@ -426,7 +427,7 @@ void ImageAligner::vectorize(Image<int> & image, Features & features)
 
 			buildCountour(image, x, y, features.back().contour_);
 
-			if ( features.back().contour_.size() < params_.minContourSize )
+			if ( features.back().contour_.size() < params_.minContourSize || features.back().contour_.size() > maxContourSize )
 				features.pop_back();
 		}
 	}

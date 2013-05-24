@@ -51,7 +51,7 @@ bool PngImager::read(const TCHAR * pngfile, ImageUC & image)
 		return false;
 
 	// we don't support other formats yet (
-	if ( color_type != PNG_COLOR_TYPE_RGB )
+	if ( color_type != PNG_COLOR_TYPE_RGB && color_type != PNG_COLOR_TYPE_RGBA )
 		return false;
 
 	int number_of_passes = png_set_interlace_handling(png_ptr); // ???
@@ -66,10 +66,33 @@ bool PngImager::read(const TCHAR * pngfile, ImageUC & image)
 		return false;
 
 	std::vector<png_bytep> rows(image.height());
-	for (int i = 0; i < image.height(); ++i)
-		rows[i] = reinterpret_cast<png_bytep>(image.get_row(i));
 
-	png_read_image(png_ptr, &rows[0]);
+	if ( color_type == PNG_COLOR_TYPE_RGB )
+	{
+		for (int i = 0; i < image.height(); ++i)
+			rows[i] = reinterpret_cast<png_bytep>(image.get_row(i));
+		png_read_image(png_ptr, &rows[0]);
+	}
+	else if ( color_type == PNG_COLOR_TYPE_RGBA )
+	{
+		Image<unsigned> image_rgba(width, height);
+
+		/// read in rgba format
+		for (int i = 0; i < image.height(); ++i)
+			rows[i] = reinterpret_cast<png_bytep>(image_rgba.get_row(i));
+
+		png_read_image(png_ptr, &rows[0]);
+
+		/// convert to rgb format
+		for (int i = 0; i < image.height(); ++i)
+		{
+			unsigned char * src_buffer = reinterpret_cast<unsigned char *>(image_rgba.get_row(i));
+			Color3uc * dst_buffer = image.get_row(i);
+
+			for (int j = 0; j < width; ++j, dst_buffer++, src_buffer += 4)
+				*dst_buffer = Color3uc(src_buffer[0], src_buffer[1], src_buffer[2]);
+		}
+	}
 
 	return true;
 }

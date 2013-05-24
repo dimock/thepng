@@ -29,15 +29,16 @@ struct Params
 {
 	Params() :
 		deltaAngle(8.0),
-		threshold(10.0),
+		colorThreshold(15.0),
+		correlationThreshold(10.0),
 		maxPaletteSize(16),
-		minContourSize(30),
-		featuresMax(100),
+		minContourSize(200),
+		featuresMax(50),
 		correlatedNum(2)
 	{
 	}
 
-	double threshold, deltaAngle;
+	double colorThreshold, deltaAngle, correlationThreshold;
 
 	size_t maxPaletteSize,
 				 minContourSize,

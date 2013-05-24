@@ -129,10 +129,10 @@ bool Feature::operator < (const Feature & other) const
 double Feature::similarity(const Feature & other) const
 {
 	if ( simple_.size() == 0 || other.simple_.size() == 0 || colorIndex_ != other.colorIndex_ ||
-       simple_.size() > other.simple_.size()*2 ||
-       other.simple_.size() > simple_.size()*2 ||
-       radius_ > other.radius_*2 ||
-       other.radius_ > radius_*2 )
+       simple_.size() > other.simple_.size()*1.3 ||
+       other.simple_.size() > simple_.size()*1.3 ||
+       radius_ > other.radius_*1.3 ||
+       other.radius_ > radius_*1.3 )
 	{
 		return -1.0;
 	}
@@ -143,11 +143,11 @@ double Feature::similarity(const Feature & other) const
 		contour2[i] -= other.center_;
 
 	Vec2d pos0 = center_ - other.center_;
-	double dxy = 1.0;
+	double dxy = 5.0;
 
 	double argsMin[] = { pos0.x() - dxy, pos0.y() - dxy, -toRad(5) };
 	double argsMax[] = { pos0.x() + dxy, pos0.y() + dxy, +toRad(5) };
-	double errs[] = { dxy, dxy, toRad(1) };
+	double errs[] = { 1, 1, toRad(0.5) };
 	double args[] = { pos0.x(), pos0.y(), 0 };
 
 	CorrelationFunction cf(contour1, contour2, other.center_);
@@ -176,7 +176,7 @@ bool ImageAligner::align()
   for (size_t i = 0; i < images_.size(); ++i)
 	{
 		imgTransforms_[i].image_ = &images_[i];
-    images_[i].make_palette(paletteBuffers[i], palette, params_.threshold, params_.maxPaletteSize);
+    images_[i].make_palette(paletteBuffers[i], palette, params_.colorThreshold, params_.maxPaletteSize);
 	}
 
   normalize_palette(palette);
@@ -450,7 +450,7 @@ void ImageAligner::findCorrelatedFeatures(size_t index1, size_t index2, std::vec
       const Feature & two = features2[j];
 
       double s = one.similarity(two);
-			if ( s < 0 )
+			if ( s < 0 || s > params_.correlationThreshold )
 				continue;
 
 			correlations.push_back( Correlation(i, j, s) );

@@ -4,9 +4,17 @@
     <ClCompile Include="thepng.cpp" />
     <ClCompile Include="png_imager.cpp" />
     <ClCompile Include="helpers.cpp" />
+    <ClCompile Include="image_aligner.cpp" />
+    <ClCompile Include="kdtree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="png_imager.h" />
     <ClInclude Include="helpers.h" />
+    <ClInclude Include="goldsect.h" />
+    <ClInclude Include="image.h" />
+    <ClInclude Include="image_aligner.h" />
+    <ClInclude Include="kdtree.h" />
+    <ClInclude Include="transf.h" />
+    <ClInclude Include="vec2.h" />
   </ItemGroup>
 </Project>

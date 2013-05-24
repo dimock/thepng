@@ -99,13 +99,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(AGEXTLIBS)\libpng_1.6.2\;$(AGEXTLIBS)\zlib_1.2.8\bin-x64\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SANDBOX)\libpng_1.6.2\;$(SANDBOX)\zlib_1.2.8\vc2010\bin-x64\include;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>zlibstaticd.lib;libpng16_staticd.lib </AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(AGEXTLIBS)\libpng_1.6.2\bin-x64\lib\;$(AGEXTLIBS)\zlib_1.2.8\bin-x64\lib\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SANDBOX)\libpng_1.6.2\vc2010\bin-x64\lib\;$(SANDBOX)\zlib_1.2.8\vc2010\bin-x64\lib\</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -134,7 +134,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(AGEXTLIBS)\libpng_1.6.2\;$(AGEXTLIBS)\zlib_1.2.8\bin-x64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SANDBOX)\libpng_1.6.2\;$(SANDBOX)\zlib_1.2.8\vc2010\bin-x64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,17 +142,25 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>zlibstatic.lib;libpng16_static.lib </AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(AGEXTLIBS)\libpng_1.6.2\bin-x64\lib\;$(AGEXTLIBS)\zlib_1.2.8\bin-x64\lib\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SANDBOX)\libpng_1.6.2\vc2010\bin-x64\lib\;$(SANDBOX)\zlib_1.2.8\vc2010\bin-x64\lib\</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="helpers.cpp" />
+    <ClCompile Include="image_aligner.cpp" />
+    <ClCompile Include="kdtree.cpp" />
     <ClCompile Include="png_imager.cpp" />
     <ClCompile Include="thepng.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="goldsect.h" />
     <ClInclude Include="helpers.h" />
+    <ClInclude Include="image.h" />
+    <ClInclude Include="image_aligner.h" />
+    <ClInclude Include="kdtree.h" />
     <ClInclude Include="png_imager.h" />
+    <ClInclude Include="transf.h" />
+    <ClInclude Include="vec2.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

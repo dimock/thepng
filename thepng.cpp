@@ -21,9 +21,9 @@ int _tmain(int argc, TCHAR ** argv)
 
   TestTimer tt;
 
-	std::vector<ImageUC> images(argc-1);
+	std::vector<ImageUC> images(2);//argc-1);
 
-	for (int i = 1; i < argc; ++i)
+	for (int i = 1; i < 3/*argc*/; ++i)
 	{
 		if ( !PngImager::read(argv[i], images[i-1]) )
 		{

@@ -250,6 +250,23 @@ bool ImageAligner::findCorrelations()
 		}
 	}
 
+	if ( !ok )
+		return false;
+
+	// find full transforms relates to base image
+	for (size_t i = 0; i < imgTransforms_.size(); ++i)
+	{
+		Transformd tr = imgTransforms_[i].tr_;
+		int baseIndex = imgTransforms_[i].baseIndex_;
+		for ( ; baseIndex >= 0; )
+		{
+			tr = imgTransforms_[baseIndex].tr_ * tr;
+			baseIndex = imgTransforms_[baseIndex].baseIndex_;
+		}
+		imgTransforms_[i].fullTr_ = tr;
+	}
+
+
 	return ok;
 }
 
@@ -605,18 +622,49 @@ bool ImageAligner::findTransform(size_t index1, size_t index2,
 
 void ImageAligner::writeResult(const TCHAR * outname) const
 {
-	ImageUC transformed(images_[1].width(), images_[0].height());
+	assert(imgTransforms_.size() > 0 && images_.size() == imgTransforms_.size());
+
+	// find result image size
+	double left =0;
+	double bottom = 0;
+	double right = images_[0].width();
+	double top = images_[0].height();
+
+	for (size_t i = 1; i < images_.size(); ++i)
+	{
+		Vec2d vec[4];
+
+		vec[0] = Vec2d(0, 0);
+		vec[1] = Vec2d(images_[i].width(), 0);
+		vec[2] = Vec2d(0, images_[i].height());
+		vec[3] = Vec2d(images_[i].width(), images_[i].height());
+
+		for (int j = 0; j < 4; ++j)
+		{
+			Vec2d v = imgTransforms_[i].fullTr_(vec[j]);
+			if ( v.x() < left )
+				left = v.x();
+			if ( v.x() > right )
+				right = v.x();
+			if ( v.y() < bottom )
+				bottom = v.y();
+			if ( v.y() > top )
+				top = v.y();
+		}
+	}
+
+	int width = right - left;
+	int height = top - bottom;
+
+	Vec2d offset(left < 0 ? -left : 0, bottom < 0 ? -bottom : 0);
+	Transformd offTr(0, offset, Vec2d());
+
+	ImageUC transformed(width, height);
 
 	for (size_t i = 0; i < images_.size(); ++i)
 	{
-		Transformd tr = imgTransforms_[i].tr_;
-		int baseIndex = imgTransforms_[i].baseIndex_;
-		for ( ; baseIndex >= 0; )
-		{
-			tr = imgTransforms_[baseIndex].tr_ * tr;
-			baseIndex = imgTransforms_[baseIndex].baseIndex_;
-		}
-
+		Transformd tr = imgTransforms_[i].fullTr_;
+		tr = tr * offTr;
 		transform<Color3uc, Color3u>(tr, images_[i], transformed);
 	}
 

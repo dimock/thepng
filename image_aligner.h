@@ -77,7 +77,7 @@ struct ImageTransform
 	const ImageUC * image_;
 
 	/// transform is applied to this image relates to images_[baseIndex_];
-	Transformd tr_;
+	Transformd tr_, fullTr_;
 	int baseIndex_;
 };
 

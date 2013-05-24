@@ -177,17 +177,16 @@ bool ImageAligner::align()
 		return false;
 
 	Transformd tr;
-  Vec2d rotCenter;
 	Vec2d center1( images_[0].width()/2.0, images_[0].height()/2.0 );
 	Vec2d center2( images_[1].width()/2.0, images_[1].height()/2.0 );
 
-	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr, rotCenter);
+	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr);
 
 #ifdef SAVE_DEBUG_INFO_
   Transformd tr0;
   ImageUC rotated(images_[1].width(), images_[0].height());
-  transform<Color3uc, Color3u>(tr0, Vec2d(), images_[0], rotated);
-  transform<Color3uc, Color3u>(tr, rotCenter, images_[1], rotated);
+  transform<Color3uc, Color3u>(tr0, images_[0], rotated);
+  transform<Color3uc, Color3u>(tr, images_[1], rotated);
 
 	PngImager::write(_T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
 #endif
@@ -202,7 +201,7 @@ bool ImageAligner::align()
 
     for (size_t j = 0; j < corrFeatures[1].contour_.size(); ++j)
     {
-      corrFeatures[1].contour_[j] = tr(corrFeatures[1].contour_[j]-rotCenter) + rotCenter;
+      corrFeatures[1].contour_[j] = tr(corrFeatures[1].contour_[j]);
     }
 
     TCHAR fname[256];
@@ -490,12 +489,11 @@ public:
 bool ImageAligner::findAlignment(const Features & features1, const Features & features2,
 																 const Vec2d & center1, const Vec2d & center2,
 																 const std::vector<Correlation> & correlations,
-																 Transformd & tr12,
-                                 Vec2d & rotCenter)
+																 Transformd & tr12)
 {
 	Contour contour1, contour2;
 
-	Vec2d startTr;
+	Vec2d startTr, rotCenter;
 	double startAngle = 0;
 	double dxy = images_[0].width()/4.0;
 
@@ -543,11 +541,11 @@ bool ImageAligner::findAlignment(const Features & features1, const Features & fe
   rotCenter *= 1.0/correlations.size();
 
 	for (size_t i = 0; i < contour2.size(); ++i)
-		contour2[i] -= rotCenter;//center2;
+		contour2[i] -= rotCenter;
 
-	double argsMin[] = { startTr.x() - dxy, startTr.y() - dxy, startAngle-params_.deltaAngle*Pi_/180.0 };
-	double argsMax[] = { startTr.x() + dxy, startTr.y() + dxy, startAngle+params_.deltaAngle*Pi_/180.0 };
-	double errs[] = { dxy*0.1, dxy*0.1, params_.deltaAngle*Pi_/180.0*0.1 };
+	double argsMin[] = { startTr.x() - dxy, startTr.y() - dxy, startAngle - toRad(params_.deltaAngle) };
+	double argsMax[] = { startTr.x() + dxy, startTr.y() + dxy, startAngle + toRad(params_.deltaAngle) };
+	double errs[] = { dxy*0.02, dxy*0.02, toRad(params_.deltaAngle)*0.02 };
 	double args[] = { startTr.x(), startTr.y(), startAngle };
 
 	CorrelationFunction cf(contour1, contour2, rotCenter);
@@ -556,6 +554,6 @@ bool ImageAligner::findAlignment(const Features & features1, const Features & fe
 	double diff0 = cf(args, 3);
 	double diff = gs.calc(10, args, errs);
 
-	tr12 = Transformd(args[2], Vec2d(args[0], args[1]));//Transformd(0, startTr);
+	tr12 = Transformd(args[2], Vec2d(args[0], args[1]), rotCenter);
 	return true;
 }

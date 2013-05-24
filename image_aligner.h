@@ -2,7 +2,7 @@
 
 #include "image.h"
 #include "helpers.h"
-
+#include "transf.h"
 
 struct Feature
 {
@@ -82,8 +82,7 @@ private:
 	bool findAlignment(const Features & features1, const Features & features2,
 		const Vec2d & center1, const Vec2d & center2,
 		const std::vector<Correlation> & correlations,
-		Transformd & tr12,
-    Vec2d & rotCenter);
+		Transformd & tr12);
 
 public:
 

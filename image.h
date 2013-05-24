@@ -3,7 +3,7 @@
 #include <vector>
 #include <math.h>
 #include <assert.h>
-#include "vec2.h"
+#include "transf.h"
 #include <limits>
 
 //////////////////////////////////////////////////////////////////////////
@@ -174,7 +174,7 @@ public:
   bool take_part(int x, int y, int npixels, Image & target_image) const;
 
 	template <class C, class A>
-  friend void transform(const Transformd & tr, const Vec2d & rotCenter, const Image<C> & source_image, Image<C> & target_image);
+  friend void transform(const Transformd & tr, const Image<C> & source_image, Image<C> & target_image);
 
   // it is supposed that images have equal size
   double calc_deviation(const Image & other) const;
@@ -228,7 +228,7 @@ bool Image<C>::take_part(int x, int y, int npixels, Image & target_image) const
  */
 
 template <class C, class A>
-void transform(const Transformd & tr, const Vec2d & rotCenter, const Image<C> & source_image, Image<C> & target_image)
+void transform(const Transformd & tr, const Image<C> & source_image, Image<C> & target_image)
 {
 	const int SHIFT = 10;
 	const int SCALE = 1<<SHIFT;
@@ -247,17 +247,17 @@ void transform(const Transformd & tr, const Vec2d & rotCenter, const Image<C> & 
 	//int dst_x0 = -dst_xcenter;
 	//int dst_y0 = -dst_ycenter;
 
-  Vec2d dst0 = -rotCenter;//(dst_x0, dst_y0);
-  Vec2d src0 = trI(dst0);
-  src0 += rotCenter;//Vec2d(dst_xcenter, dst_ycenter);
+//  Vec2d dst0 = -rotCenter;//(dst_x0, dst_y0);
+  Vec2d src0 = trI(Vec2d(0, 0));
+//  src0 += rotCenter;//Vec2d(dst_xcenter, dst_ycenter);
 
 	int src_x0 = src0.x() * SCALE;
 	int src_y0 = src0.y() * SCALE;
 
-	int dxx = trI.cosa()*SCALE;
-	int dyx = trI.sina()*SCALE;
-  int dxy = -trI.sina()*SCALE;
-	int dyy = trI.cosa()*SCALE;
+	int dxx = trI.rx().x()*SCALE;
+	int dyx = trI.ry().x()*SCALE;
+  int dxy = trI.rx().y()*SCALE;
+	int dyy = trI.ry().y()*SCALE;
 
 
   for (int dst_y = 0; dst_y < target_image.height_; ++dst_y, src_x0 += dxy, src_y0 += dyy, dst_buffer += target_image.width_)

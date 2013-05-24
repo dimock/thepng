@@ -4,6 +4,10 @@
 #include <math.h>
 
 extern const double Pi_;
+inline double toRad(double angle)
+{
+	return (Pi_/180.0)*angle;
+}
 
 template <class T>
 class Vec2
@@ -63,54 +67,8 @@ public:
 	{ return ( x_ != v.x_ ) ||( y_ != v.y_ ); }
 };
 
-template <class T>
-class Transform
-{
-	T angle_;
-	Vec2<T> tr_;
-	T sina_, cosa_;
-
-public:
-
-	Transform() : angle_(0), sina_(0), cosa_(1.0)
-	{
-	}
-
-	Transform(const T & angle, const Vec2<T> & tr) : angle_(angle), tr_(tr)
-	{
-		sina_ = sin(angle_);
-		cosa_ = cos(angle_);
-	}
-
-	Vec2<T> operator () (const Vec2<T> & v) const
-	{
-		Vec2<T> r(cosa_*v.x() - sina_*v.y() + tr_.x(),
-			sina_*v.x() + cosa_*v.y() + tr_.y());
-
-		return r;
-	}
-
-	T const angle () const { return angle_; }
-	Vec2<T> tr() const { return tr_; }
-  T sina() const { return sina_; }
-  T cosa() const { return cosa_; }
-
-  // invert transform
-  Transform<T> operator ~ () const
-  {
-    Transform<T> trI;
-    trI.angle_ = -angle_;
-    trI.sina_ = -sina_;
-    trI.cosa_ = cosa_;
-    trI.tr_ = Vec2<T>( -tr_.x()*cosa()-tr_.y()*sina(), tr_.x()*sina()-tr_.y()*cosa() );
-    return trI;
-  }
-};
-
 typedef Vec2<int> Vec2i;
 typedef Vec2<double> Vec2d;
-
-typedef Transform<double> Transformd;
 
 typedef std::vector<Vec2d> Contour;
 typedef std::vector<Contour> Contours;

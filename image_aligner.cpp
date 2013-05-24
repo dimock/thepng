@@ -7,6 +7,56 @@
 #include "kdtree.h"
 #include "goldsect.h"
 
+
+//////////////////////////////////////////////////////////////////////////
+
+class CorrelationFunction
+{
+	Contour & contour1_;
+	const Contour & contour2_;
+	Vec2d center2_;
+	KdTree kdtree_;
+
+public:
+
+	CorrelationFunction(Contour & contour1, const Contour & contour2, const Vec2d & center2) :
+		contour1_(contour1), contour2_(contour2), center2_(center2)
+	{
+		kdtree_.build(contour1_);
+	}
+
+	double operator () (double * prm, int n) const
+	{
+		assert(n >= 3);
+
+		Vec2d v(prm[0], prm[1]);
+		double angle = prm[2];
+
+		Transformd tr(angle, v+center2_);
+
+		int itersN;
+		double diff = 0;
+		int count = 0;
+		for (size_t i = 0; i < contour2_.size(); ++i)
+		{
+			Vec2d p = tr(contour2_[i]);
+			kdNode * node = kdtree_.searchNN(p, itersN);
+			if ( !node )
+				continue;
+
+			double d = (p - node->p_).length2();
+			diff += d;
+			count++;
+		}
+
+		assert( count > 0 );
+
+		diff /= count;
+		return diff;
+	}
+};
+
+
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -87,32 +137,23 @@ double Feature::similarity(const Feature & other) const
 		return -1.0;
 	}
 
-  double diff = 0;
-  Vec2d tr = other.center_ - center_;
+	Contour contour1 = simple_;
+	Contour contour2 = other.simple_;
+	for (size_t i = 0; i < contour2.size(); ++i)
+		contour2[i] -= other.center_;
 
-	KdTree kdtree;
+	Vec2d pos0 = center_ - other.center_;
+	double dxy = 1.0;
 
-	Contour contour = other.simple_;
-	kdtree.build(contour);
-	int count = 0;
+	double argsMin[] = { pos0.x() - dxy, pos0.y() - dxy, -toRad(5) };
+	double argsMax[] = { pos0.x() + dxy, pos0.y() + dxy, +toRad(5) };
+	double errs[] = { dxy, dxy, toRad(1) };
+	double args[] = { pos0.x(), pos0.y(), 0 };
 
-  for (size_t i = 0; i < simple_.size(); ++i)
-  {
-    Vec2d p = simple_[i] + tr;
-		int itersN = 0;
-		kdNode * node = kdtree.searchNN(p, itersN);
-		if ( !node )
-			continue;
+	CorrelationFunction cf(contour1, contour2, other.center_);
+	GoldSection<double, CorrelationFunction> gs(cf, argsMin, argsMax, 3);
 
-    double dist = (node->p_ - p).length();
-    diff += dist;
-		++count;
-  }
-	
-	if ( !count )
-		return std::numeric_limits<double>::max();
-
-  diff /= count;
+	double diff = gs.calc(3, args, errs);
   return diff;
 }
 
@@ -176,7 +217,7 @@ bool ImageAligner::align()
 
 	findCorrelations();
 
-	writeResult(_T("..\\..\\..\\data\\temp\\result.png"));
+	writeResult();
 
 	return true;
 }
@@ -205,9 +246,10 @@ bool ImageAligner::findCorrelations()
 				continue;
 
 			Transformd tr;
+			double diff;
 
 			/// find transform for i-th image relates to j
-			if ( !findTransform(j, i, correlations, tr) )
+			if ( !findTransform(j, i, correlations, tr, diff) )
 				continue;
 
 #ifdef SAVE_DEBUG_INFO_
@@ -231,6 +273,7 @@ bool ImageAligner::findCorrelations()
 
 			imgTransforms_[i].baseIndex_ = j;
 			imgTransforms_[i].tr_ = tr;
+
 			break;
 		}
 
@@ -500,55 +543,10 @@ void ImageAligner::findCorrelatedFeatures(size_t index1, size_t index2, std::vec
 
 //////////////////////////////////////////////////////////////////////////
 
-class CorrelationFunction
-{
-	Contour & contour1_;
-	Contour & contour2_;
-	Vec2d center2_;
-	KdTree kdtree_;
-
-public:
-
-	CorrelationFunction(Contour & contour1, Contour & contour2, const Vec2d & center2) :
-		contour1_(contour1), contour2_(contour2), center2_(center2)
-	{
-		kdtree_.build(contour1_);
-	}
-
-	double operator () (double * prm, int n) const
-	{
-		assert(n >= 3);
-		
-		Vec2d v(prm[0], prm[1]);
-		double angle = prm[2];
-
-		Transformd tr(angle, v+center2_);
-
-		int itersN;
-		double diff = 0;
-		int count = 0;
-		for (size_t i = 0; i < contour2_.size(); ++i)
-		{
-			Vec2d p = tr(contour2_[i]);
-			kdNode * node = kdtree_.searchNN(p, itersN);
-			if ( !node )
-				continue;
-
-			double d = (p - node->p_).length2();
-			diff += d;
-			count++;
-		}
-
-		assert( count > 0 );
-
-		diff /= count;
-		return diff;
-	}
-};
 
 bool ImageAligner::findTransform(size_t index1, size_t index2,
 																 const std::vector<Correlation> & correlations,
-																 Transformd & tr12)
+																 Transformd & tr12, double & diff)
 {
 	Contour contour1, contour2;
 
@@ -613,16 +611,15 @@ bool ImageAligner::findTransform(size_t index1, size_t index2,
 	CorrelationFunction cf(contour1, contour2, rotCenter);
 	GoldSection<double, CorrelationFunction> gs(cf, argsMin, argsMax, 3);
 
-	double diff0 = cf(args, 3);
-	double diff = gs.calc(10, args, errs);
+	diff = gs.calc(10, args, errs);
 
 	tr12 = Transformd(args[2], Vec2d(args[0], args[1]), rotCenter);
 	return true;
 }
 
-void ImageAligner::writeResult(const TCHAR * outname) const
+void ImageAligner::writeResult() const
 {
-	assert(imgTransforms_.size() > 0 && images_.size() == imgTransforms_.size());
+	assert(!params_.outname_.empty() && imgTransforms_.size() > 0 && images_.size() == imgTransforms_.size());
 
 	// find result image size
 	double left =0;
@@ -668,5 +665,5 @@ void ImageAligner::writeResult(const TCHAR * outname) const
 		transform<Color3uc, Color3u>(tr, images_[i], transformed);
 	}
 
-	PngImager::write(outname, transformed);
+	PngImager::write(params_.outname_.c_str(), transformed);
 }

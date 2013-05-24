@@ -21,9 +21,9 @@ int _tmain(int argc, TCHAR ** argv)
 
   TestTimer tt;
 
-	std::vector<ImageUC> images(2);//argc-1);
+	std::vector<ImageUC> images(argc-1);
 
-	for (int i = 1; i < 3/*argc*/; ++i)
+	for (int i = 1; i < argc; ++i)
 	{
 		if ( !PngImager::read(argv[i], images[i-1]) )
 		{
@@ -32,7 +32,15 @@ int _tmain(int argc, TCHAR ** argv)
 		}
 	}
 
+	//_T("..\\..\\..\\data\\temp\\result.png")
+
+	Params params;
+	std::tstring firstname(argv[1]);
+	replace_backslashes(firstname);
+	params.outname_ = extract_dirname(firstname) + std::tstring(_T("result.png"));
+
 	ImageAligner aligner(images);
+	aligner.setParams(params);
   aligner.align();
 
   double dt = tt.getTimeMs();

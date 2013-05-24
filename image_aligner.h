@@ -28,13 +28,12 @@ typedef std::vector<Feature> Features;
 struct Params
 {
 	Params() :
-		deltaAngle(15.0),
-		threshold(15.0),
+		deltaAngle(8.0),
+		threshold(10.0),
 		maxPaletteSize(16),
-		minContourSize(100),
-		featuresMax(20),
-		similarMax(5),
-		correlatedNum(1)
+		minContourSize(30),
+		featuresMax(100),
+		correlatedNum(2)
 	{
 	}
 
@@ -43,9 +42,9 @@ struct Params
 	size_t maxPaletteSize,
 				 minContourSize,
 				 featuresMax,
-				 similarMax,
 				 correlatedNum;
 
+	std::tstring outname_;
 };
 
 struct Correlation
@@ -91,9 +90,9 @@ private:
 
 	bool findCorrelations();
 	void findCorrelatedFeatures(size_t index1, size_t index2, std::vector<Correlation> & correlations);
-	bool findTransform(size_t index1, size_t index2, const std::vector<Correlation> & correlations, Transformd & tr12);
+	bool findTransform(size_t index1, size_t index2, const std::vector<Correlation> & correlations, Transformd & tr12, double & diff);
 
-	void writeResult(const TCHAR * outname) const;
+	void writeResult() const;
 
 public:
 

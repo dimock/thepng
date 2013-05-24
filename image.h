@@ -171,16 +171,8 @@ public:
 
 	void make_palette(Image<int> & target_buffer, std::vector<C> & palette, double threshold, size_t maxPaletteSize) const;
 
-  bool take_part(int x, int y, int npixels, Image & target_image) const;
-
 	template <class C, class A>
   friend void transform(const Transformd & tr, const Image<C> & source_image, Image<C> & target_image);
-
-  // it is supposed that images have equal size
-  double calc_deviation(const Image & other) const;
-
-	template <class C, class A>
-	friend double calc_variation(const Image<C> & image, C & average);
 
 	void clear_data()
 	{
@@ -194,31 +186,6 @@ private:
   int height_;
   std::vector<C> buffer_;
 };
-
-
-/// extract part of image starting from point (x, y) with size npixels in both directions
-template <class C>
-bool Image<C>::take_part(int x, int y, int npixels, Image & target_image) const
-{
-  if ( x < 0 || y < 0 || x+npixels > width_ || y+npixels > height_ )
-    return false;
-
-  target_image.init(npixels, npixels);
-
-  const C * src_buffer = buffer() + width_*y;
-  C * dst_buffer = target_image.buffer();
-
-  for (int i = 0; i < target_image.height_; ++i, src_buffer += width_, dst_buffer += target_image.width_)
-  {
-    const C * src_buf = src_buffer + x;
-    C * dst_buf = dst_buffer;
-
-    for (int j = 0; j < target_image.width_; ++j, src_buf++, dst_buf++)
-      *dst_buf = *src_buf;
-  }
-
-  return true;
-}
 
 /**
  * first rotate image around its center,than translate it
@@ -243,13 +210,7 @@ void transform(const Transformd & tr, const Image<C> & source_image, Image<C> & 
   int src_xcenter = source_image.width_/2;
   int src_ycenter = source_image.height_/2;
 
-  // start point is {0, 0}. we rotate around image center, so we subtract center from  {0, 0}
-	//int dst_x0 = -dst_xcenter;
-	//int dst_y0 = -dst_ycenter;
-
-//  Vec2d dst0 = -rotCenter;//(dst_x0, dst_y0);
   Vec2d src0 = trI(Vec2d(0, 0));
-//  src0 += rotCenter;//Vec2d(dst_xcenter, dst_ycenter);
 
 	int src_x0 = src0.x() * SCALE;
 	int src_y0 = src0.y() * SCALE;
@@ -293,48 +254,6 @@ void transform(const Transformd & tr, const Image<C> & source_image, Image<C> & 
 			*dst_buf = color >> 2*SHIFT;
     }
   }
-}
-
-template <class C>
-double Image<C>::calc_deviation(const Image<C> & other) const
-{
-	assert(other.width_ == width_ && other.height_ == height_ && other.bytes_pp_ == bytes_pp_);
-
-	const C * this_buffer = buffer();
-	const C * other_buffer = other.buffer();
-
-	unsigned long long sum = 0;
-	int pixelsN = 0;
-
-	for (int y = 0; y < height_; ++y, this_buffer += width_, other_buffer += width_)
-	{
-		const unsigned char * this_buf = this_buffer;
-		const unsigned char * other_buf = other_buffer;
-
-		for (int x = 0; x < width_; ++x, this_buf++, other_buf++)
-		{
-			// if color is NULL we suppose that pixel unused
-			if ( !*this_buf || !*other_buf )
-				continue;
-
-			Color3<unsigned long long> this_color = *this_buf;
-			Color3<unsigned long long> other_color = *other_buf;
-			Color3<unsigned long long> color = this_color - other_color;
-			color = color * color;
-
-			sum += color.r() + color.g() + color.b();
-			pixelsN++;
-		}
-	}
-
-	if ( 0 == pixelsN )
-		return -1.0;
-
-	double deviation = sqrt((double)sum)/pixelsN;
-	if ( deviation == 0 )
-		return 0;
-
-	return deviation;
 }
 
 template <class C>
@@ -416,97 +335,6 @@ void normalize_palette(std::vector<C> & palette)
 			palette[i] = C(rgb[0], rgb[1], rgb[2]);
 		}
 	}
-}
-
-
-template <class C, class A>
-double calc_variation(const Image<C> & image, C & average)
-{
-  A sum, sum2;
-  int count = 0;
-
-	const C * buffer = image.buffer();
-	for (size_t i = 0; i < image.buffer_.size(); ++i, buffer++)
-  {
-    if ( !*buffer )
-      continue;
-
-		A a = *buffer;
-    sum  += a;
-    sum2 += a * a;
-
-    count++;
-  }
-
-  if ( !count )
-    return -1.0;
-
-	A result = sum2 - sum*sum/count;
-	average = sum / count;
-
-	/// HACK. it is supposed that A is color type !
-	double var = ( sqrt((double)result.r()) + sqrt((double)result.g()) + sqrt((double)result.b()) ) / count;
-
-  return var;
-}
-
-template <class C, class A>
-bool scale_xy(int factor, const Image<C> & source_image, Image<C> & target_image)
-{
-	int dst_width  = source_image.width() /factor;
-	int dst_height = source_image.height()/factor;
-
-	if ( dst_width < 1 || dst_height < 1 )
-		return false;
-
-	// allocate target buffer
-	// pixels are unsigned, because we have to store sum of source pixels colors
-	std::vector<A> sum_buffer(dst_width*dst_height);
-
-	const C * src_buffer = source_image.buffer();
-	A * dst_buffer = &sum_buffer[0];
-
-	// sequentially scan source image row by row
-	for (int y = 0, y_dst = 0, y_counter = 0; y < source_image.height(); ++y, y_counter++, src_buffer += source_image.width())
-	{
-		// we need to go to the next line of target image
-		if ( y_counter >= factor )
-		{
-			y_counter = 0;
-			if ( ++y_dst >= dst_height )
-				break;
-
-			dst_buffer += dst_width;
-		}
-
-		const C * src_row = src_buffer;
-		A * dst_row = dst_buffer;
-
-		for (int x = 0, x_dst = 0, x_counter = 0; x < source_image.width(); ++x, x_counter++, src_row++)
-		{
-			// take the next taget pixel
-			if ( x_counter >= factor )
-			{
-				x_counter = 0;
-				if ( ++x_dst >= dst_width )
-					break;
-
-				dst_row++;
-			}
-
-			*dst_row += *src_row;
-		}
-	}
-
-	// copy average values of the result to the target
-	target_image.init(dst_width, dst_height);
-	C * target_buffer = target_image.buffer();
-	int factor2 = factor*factor;
-
-	for (size_t i = 0; i < sum_buffer.size(); ++i)
-		target_buffer[i] = sum_buffer[i]/factor2;
-
-	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////

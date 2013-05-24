@@ -174,7 +174,7 @@ public:
   bool take_part(int x, int y, int npixels, Image & target_image) const;
 
 	template <class C, class A>
-  friend void rotate(double angle, const Vec2i & translate, const Image<C> & source_image, Image<C> & target_image);
+  friend void transform(const Transformd & tr, const Vec2d & rotCenter, const Image<C> & source_image, Image<C> & target_image);
 
   // it is supposed that images have equal size
   double calc_deviation(const Image & other) const;
@@ -221,38 +221,43 @@ bool Image<C>::take_part(int x, int y, int npixels, Image & target_image) const
 }
 
 /**
- * take rotated part of this image and copy it to target. also translate in by XY
+ * first rotate image around its center,than translate it
  * we scan each line of target image pixel by pixel and calculate corresponding source pixels coords
  * than we take 4 neighbors and calculate average color of result pixel
  * while calculating color we take in account areas of this pixel which it eats from source pixels
  */
 
 template <class C, class A>
-void rotate(double angle, const Vec2i & translate, const Image<C> & source_image, Image<C> & target_image)
+void transform(const Transformd & tr, const Vec2d & rotCenter, const Image<C> & source_image, Image<C> & target_image)
 {
 	const int SHIFT = 10;
 	const int SCALE = 1<<SHIFT;
 	const int MASK = SCALE-1;
 
+  Transformd trI = ~tr;
+
 	const C * src_buffer = source_image.buffer();
   C * dst_buffer = target_image.buffer();
-  double sina = sin(angle);
-  double cosa = cos(angle);
   int dst_xcenter = target_image.width_/2;
   int dst_ycenter = target_image.height_/2;
   int src_xcenter = source_image.width_/2;
   int src_ycenter = source_image.height_/2;
 
-	int dst_x0 = -dst_xcenter;
-	int dst_y0 = -dst_ycenter;
+  // start point is {0, 0}. we rotate around image center, so we subtract center from  {0, 0}
+	//int dst_x0 = -dst_xcenter;
+	//int dst_y0 = -dst_ycenter;
 
-	int src_x0 = (dst_x0*cosa - dst_y0*sina + /*src_xcenter - */translate.x()) * SCALE;
-	int src_y0 = (dst_x0*sina + dst_y0*cosa + /*src_ycenter - */translate.y()) * SCALE;
+  Vec2d dst0 = -rotCenter;//(dst_x0, dst_y0);
+  Vec2d src0 = trI(dst0);
+  src0 += rotCenter;//Vec2d(dst_xcenter, dst_ycenter);
 
-	int dxx = cosa*SCALE;
-	int dyx = sina*SCALE;
-	int dxy = -sina*SCALE;
-	int dyy = cosa*SCALE;
+	int src_x0 = src0.x() * SCALE;
+	int src_y0 = src0.y() * SCALE;
+
+	int dxx = trI.cosa()*SCALE;
+	int dyx = trI.sina()*SCALE;
+  int dxy = -trI.sina()*SCALE;
+	int dyy = trI.cosa()*SCALE;
 
 
   for (int dst_y = 0; dst_y < target_image.height_; ++dst_y, src_x0 += dxy, src_y0 += dyy, dst_buffer += target_image.width_)

@@ -72,7 +72,7 @@ class Transform
 
 public:
 
-	Transform() : angle_(0), sina_(0), cosa_(1)
+	Transform() : angle_(0), sina_(0), cosa_(1.0)
 	{
 	}
 
@@ -90,8 +90,21 @@ public:
 		return r;
 	}
 
-	double const angle () const { return angle_; }
+	T const angle () const { return angle_; }
 	Vec2<T> tr() const { return tr_; }
+  T sina() const { return sina_; }
+  T cosa() const { return cosa_; }
+
+  // invert transform
+  Transform<T> operator ~ () const
+  {
+    Transform<T> trI;
+    trI.angle_ = -angle_;
+    trI.sina_ = -sina_;
+    trI.cosa_ = cosa_;
+    trI.tr_ = Vec2<T>( -tr_.x()*cosa()-tr_.y()*sina(), tr_.x()*sina()-tr_.y()*cosa() );
+    return trI;
+  }
 };
 
 typedef Vec2<int> Vec2i;

@@ -134,13 +134,16 @@ bool ImageAligner::align()
 
   normalize_palette(palette);
 
+#ifdef SAVE_DEBUG_INFO_
   std::vector<ImageUC> paletteImages(images_.size());
+#endif
+
   for (size_t i = 0; i < images_.size(); ++i)
   {
     findBoundaries(paletteBuffers[i]);
-    imageToPalette(paletteBuffers[i], paletteImages[i], palette);
 
 #ifdef SAVE_DEBUG_INFO_
+    imageToPalette(paletteBuffers[i], paletteImages[i], palette);
     TCHAR fname[256];
     _stprintf(fname, _T("..\\..\\..\\data\\temp\\palette_%d.png"), i);
     PngImager::write(fname, paletteImages[i]);
@@ -173,30 +176,39 @@ bool ImageAligner::align()
 	if ( correlations.empty() )
 		return false;
 
-#ifdef SAVE_DEBUG_INFO_
-	for (size_t i = 0; i < correlations.size(); ++i)
-	{
-		Features corrFeatures;
-		Correlation & corr = correlations[i];
-		corrFeatures.push_back(features_arr[0][corr.index1_]);
-		corrFeatures.push_back(features_arr[1][corr.index2_]);
-
-		TCHAR fname[256];
-		_stprintf(fname, _T("..\\..\\..\\data\\temp\\correlated_%d.txt"), i);
-		saveContours(fname , corrFeatures );
-	}
-#endif
-
 	Transformd tr;
+  Vec2d rotCenter;
 	Vec2d center1( images_[0].width()/2.0, images_[0].height()/2.0 );
 	Vec2d center2( images_[1].width()/2.0, images_[1].height()/2.0 );
 
-	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr);
+	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr, rotCenter);
 
 #ifdef SAVE_DEBUG_INFO_
-	ImageUC rotated(images_[1].width(), images_[1].height());
-	rotate<Color3uc, Color3u>(tr.angle(), tr.tr(), images_[1], rotated);
+  Transformd tr0;
+  ImageUC rotated(images_[1].width(), images_[0].height());
+  transform<Color3uc, Color3u>(tr0, Vec2d(), images_[0], rotated);
+  transform<Color3uc, Color3u>(tr, rotCenter, images_[1], rotated);
+
 	PngImager::write(_T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
+#endif
+
+#ifdef SAVE_DEBUG_INFO_
+  for (size_t i = 0; i < correlations.size(); ++i)
+  {
+    Features corrFeatures;
+    Correlation & corr = correlations[i];
+    corrFeatures.push_back(features_arr[0][corr.index1_]);
+    corrFeatures.push_back(features_arr[1][corr.index2_]);
+
+    for (size_t j = 0; j < corrFeatures[1].contour_.size(); ++j)
+    {
+      corrFeatures[1].contour_[j] = tr(corrFeatures[1].contour_[j]-rotCenter) + rotCenter;
+    }
+
+    TCHAR fname[256];
+    _stprintf(fname, _T("..\\..\\..\\data\\temp\\correlated_%d.txt"), i);
+    saveContours(fname , corrFeatures );
+  }
 #endif
 
 	return true;
@@ -463,7 +475,7 @@ public:
 			if ( !node )
 				continue;
 
-			double d = (p - node->p_).length();
+			double d = (p - node->p_).length2();
 			diff += d;
 			count++;
 		}
@@ -478,7 +490,8 @@ public:
 bool ImageAligner::findAlignment(const Features & features1, const Features & features2,
 																 const Vec2d & center1, const Vec2d & center2,
 																 const std::vector<Correlation> & correlations,
-																 Transformd & tr12)
+																 Transformd & tr12,
+                                 Vec2d & rotCenter)
 {
 	Contour contour1, contour2;
 
@@ -521,25 +534,28 @@ bool ImageAligner::findAlignment(const Features & features1, const Features & fe
 			contours[j]->resize(start+fcontours[j]->size());
 			std::copy(fcontours[j]->begin(), fcontours[j]->end(), contours[j]->begin()+start);
 		}
+
+    rotCenter += f2.center_;
 	}
 
 	dxy *= 0.25;
 	startTr *= 1.0/correlations.size();
+  rotCenter *= 1.0/correlations.size();
 
 	for (size_t i = 0; i < contour2.size(); ++i)
-		contour2[i] -= center2;
+		contour2[i] -= rotCenter;//center2;
 
 	double argsMin[] = { startTr.x() - dxy, startTr.y() - dxy, startAngle-params_.deltaAngle*Pi_/180.0 };
 	double argsMax[] = { startTr.x() + dxy, startTr.y() + dxy, startAngle+params_.deltaAngle*Pi_/180.0 };
-	double errs[] = { dxy*0.1, dxy*0.1, params_.deltaAngle*0.1 };
+	double errs[] = { dxy*0.1, dxy*0.1, params_.deltaAngle*Pi_/180.0*0.1 };
 	double args[] = { startTr.x(), startTr.y(), startAngle };
 
-	CorrelationFunction cf(contour1, contour2, center2);
+	CorrelationFunction cf(contour1, contour2, rotCenter);
 	GoldSection<double, CorrelationFunction> gs(cf, argsMin, argsMax, 3);
 
 	double diff0 = cf(args, 3);
 	double diff = gs.calc(10, args, errs);
 
-	tr12 = Transformd(args[2], Vec2d(args[0], args[1]) + center2);
+	tr12 = Transformd(args[2], Vec2d(args[0], args[1]));//Transformd(0, startTr);
 	return true;
 }

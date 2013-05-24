@@ -34,7 +34,7 @@ struct Params
 		minContourSize(100),
 		featuresMax(20),
 		similarMax(5),
-		correlatedNum(5)
+		correlatedNum(1)
 	{
 	}
 
@@ -82,7 +82,8 @@ private:
 	bool findAlignment(const Features & features1, const Features & features2,
 		const Vec2d & center1, const Vec2d & center2,
 		const std::vector<Correlation> & correlations,
-		Transformd & tr12);
+		Transformd & tr12,
+    Vec2d & rotCenter);
 
 public:
 

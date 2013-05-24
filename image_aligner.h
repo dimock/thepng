@@ -70,6 +70,17 @@ struct Correlation
 	double correlationCoefficient_;
 };
 
+struct ImageTransform
+{
+	ImageTransform() : image_(0), baseIndex_(-1) {}
+
+	const ImageUC * image_;
+
+	/// transform is applied to this image relates to images_[baseIndex_];
+	Transformd tr_;
+	int baseIndex_;
+};
+
 class ImageAligner
 {
 private:
@@ -77,12 +88,12 @@ private:
 	void findBoundaries(Image<int> & image);
 	void buildCountour(Image<int> & image, int x, int y, Contour & contour);
 	void vectorize(Image<int> & image, Features & features);
-	void findCorrelatedFeatures(const Features & features, const Features & other, std::vector<Correlation> & correlations);
 
-	bool findAlignment(const Features & features1, const Features & features2,
-		const Vec2d & center1, const Vec2d & center2,
-		const std::vector<Correlation> & correlations,
-		Transformd & tr12);
+	bool findCorrelations();
+	void findCorrelatedFeatures(size_t index1, size_t index2, std::vector<Correlation> & correlations);
+	bool findTransform(size_t index1, size_t index2, const std::vector<Correlation> & correlations, Transformd & tr12);
+
+	void writeResult(const TCHAR * outname) const;
 
 public:
 
@@ -101,6 +112,8 @@ public:
 private:
 
 	std::vector<ImageUC> & images_;
+	std::vector<Features> features_arr_;
+	std::vector<ImageTransform> imgTransforms_;
 
 	Params params_;
 };

@@ -129,8 +129,14 @@ bool ImageAligner::align()
   std::vector<Color3uc> palette;
   std::vector<Image<int>> paletteBuffers(images_.size());
 
+	imgTransforms_.resize(images_.size());
+	features_arr_.resize(images_.size());
+
   for (size_t i = 0; i < images_.size(); ++i)
+	{
+		imgTransforms_[i].image_ = &images_[i];
     images_[i].make_palette(paletteBuffers[i], palette, params_.threshold, params_.maxPaletteSize);
+	}
 
   normalize_palette(palette);
 
@@ -150,67 +156,101 @@ bool ImageAligner::align()
 #endif
   }
 
-  std::vector<Features> features_arr(paletteBuffers.size());
-
   for (size_t i = 0; i < paletteBuffers.size(); ++i)
   {
-    vectorize(paletteBuffers[i], features_arr[i]);
+    vectorize(paletteBuffers[i], features_arr_[i]);
 
 #ifdef SAVE_DEBUG_INFO_
     TCHAR fname[256];
     _stprintf(fname, _T("..\\..\\..\\data\\temp\\contours_%d.txt"), i);
-    saveContours(fname, features_arr[i]);
+    saveContours(fname, features_arr_[i]);
 #endif
   }
 
-  for (size_t i = 0; i < features_arr.size(); ++i)
+  for (size_t i = 0; i < features_arr_.size(); ++i)
   {
-    Features & features = features_arr[i];
+    Features & features = features_arr_[i];
     for (size_t j = 0; j < features.size(); ++j)
       features[j].prepare();
   }
 
-	std::vector<Correlation> correlations;
-  findCorrelatedFeatures(features_arr[0], features_arr[1], correlations);
+	findCorrelations();
 
-	if ( correlations.empty() )
-		return false;
-
-	Transformd tr;
-	Vec2d center1( images_[0].width()/2.0, images_[0].height()/2.0 );
-	Vec2d center2( images_[1].width()/2.0, images_[1].height()/2.0 );
-
-	findAlignment(features_arr[0], features_arr[1], center1, center2, correlations, tr);
-
-#ifdef SAVE_DEBUG_INFO_
-  Transformd tr0;
-  ImageUC rotated(images_[1].width(), images_[0].height());
-  transform<Color3uc, Color3u>(tr0, images_[0], rotated);
-  transform<Color3uc, Color3u>(tr, images_[1], rotated);
-
-	PngImager::write(_T("..\\..\\..\\data\\temp\\rotated.png"), rotated);
-#endif
-
-#ifdef SAVE_DEBUG_INFO_
-  for (size_t i = 0; i < correlations.size(); ++i)
-  {
-    Features corrFeatures;
-    Correlation & corr = correlations[i];
-    corrFeatures.push_back(features_arr[0][corr.index1_]);
-    corrFeatures.push_back(features_arr[1][corr.index2_]);
-
-    for (size_t j = 0; j < corrFeatures[1].contour_.size(); ++j)
-    {
-      corrFeatures[1].contour_[j] = tr(corrFeatures[1].contour_[j]);
-    }
-
-    TCHAR fname[256];
-    _stprintf(fname, _T("..\\..\\..\\data\\temp\\correlated_%d.txt"), i);
-    saveContours(fname , corrFeatures );
-  }
-#endif
+	writeResult(_T("..\\..\\..\\data\\temp\\result.png"));
 
 	return true;
+}
+//////////////////////////////////////////////////////////////////////////
+bool ImageAligner::findCorrelations()
+{
+	if ( features_arr_.size() < 2 )
+		return false;
+
+	/// try to align each image except 0 to other image.
+	/// 0 image is base
+	for (size_t i = 1; i < features_arr_.size(); ++i)
+	{
+		if ( imgTransforms_[i].baseIndex_ >= 0 )
+			continue;
+
+		for (size_t j = 0; j < features_arr_.size(); ++j)
+		{
+			if ( i == j )
+				continue;
+
+			std::vector<Correlation> correlations;
+			findCorrelatedFeatures(j, i, correlations);
+
+			if ( correlations.empty() )
+				continue;
+
+			Transformd tr;
+
+			/// find transform for i-th image relates to j
+			if ( !findTransform(j, i, correlations, tr) )
+				continue;
+
+#ifdef SAVE_DEBUG_INFO_
+			for (size_t m = 0; m < correlations.size(); ++m)
+			{
+				Features corrFeatures;
+				Correlation & corr = correlations[m];
+				corrFeatures.push_back(features_arr_[j][corr.index1_]);
+				corrFeatures.push_back(features_arr_[i][corr.index2_]);
+
+				for (size_t n = 0; n < corrFeatures[1].contour_.size(); ++n)
+				{
+					corrFeatures[1].contour_[n] = tr(corrFeatures[1].contour_[n]);
+				}
+
+				TCHAR fname[256];
+				_stprintf(fname, _T("..\\..\\..\\data\\temp\\correlated_%d.txt"), m);
+				saveContours(fname , corrFeatures );
+			}
+#endif
+
+			imgTransforms_[i].baseIndex_ = j;
+			imgTransforms_[i].tr_ = tr;
+			break;
+		}
+
+		/// transform not found
+		if ( imgTransforms_[i].baseIndex_ < 0 )
+			return false;
+	}
+
+	/// do we have at least 1 image based on 0-th
+	bool ok = false;
+	for (size_t i = 0; i < imgTransforms_.size(); ++i)
+	{
+		if ( imgTransforms_[i].baseIndex_ == 0 )
+		{
+			ok = true;
+			break;
+		}
+	}
+
+	return ok;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -337,14 +377,17 @@ void ImageAligner::vectorize(Image<int> & image, Features & features)
 		features.erase(features.begin()+params_.featuresMax, features.end());
 }
 
-void ImageAligner::findCorrelatedFeatures(const Features & features, const Features & other, std::vector<Correlation> & correlations)
+void ImageAligner::findCorrelatedFeatures(size_t index1, size_t index2, std::vector<Correlation> & correlations)
 {
-  for (size_t i = 0; i < features.size(); i++)
+	const Features & features1 = features_arr_[index1];
+	const Features & features2 = features_arr_[index2];
+
+  for (size_t i = 0; i < features1.size(); i++)
   {
-    const Feature & one = features[i];
-    for (size_t j = 0; j < other.size(); ++j)
+    const Feature & one = features1[i];
+    for (size_t j = 0; j < features2.size(); ++j)
     {
-      const Feature & two = other[j];
+      const Feature & two = features2[j];
 
       double s = one.similarity(two);
 			if ( s < 0 )
@@ -366,8 +409,8 @@ void ImageAligner::findCorrelatedFeatures(const Features & features, const Featu
 		if ( !corr_i.ok_ )
 			continue;
 
-		const Feature & one_i = features[corr_i.index1_];
-		const Feature & two_i = other[corr_i.index2_];
+		const Feature & one_i = features1[corr_i.index1_];
+		const Feature & two_i = features2[corr_i.index2_];
 
 		for (size_t j = i+1; j < correlations.size(); ++j)
 		{
@@ -383,8 +426,8 @@ void ImageAligner::findCorrelatedFeatures(const Features & features, const Featu
 				continue;
 			}
 
-			const Feature & one_j = features[corr_j.index1_];
-			const Feature & two_j = other[corr_j.index2_];
+			const Feature & one_j = features1[corr_j.index1_];
+			const Feature & two_j = features2[corr_j.index2_];
 
 			double dist_one = (one_i.center_ - one_j.center_).length();
 			double dist_two = (two_i.center_ - two_j.center_).length();
@@ -418,15 +461,15 @@ void ImageAligner::findCorrelatedFeatures(const Features & features, const Featu
 	Correlation & corr0 = correlations[0];
 	Correlation & corr1 = correlations[1];
 
-	Vec2d dir1 = features[corr0.index1_].center_ - features[corr1.index1_].center_;
-	Vec2d dir2 = other[corr0.index2_].center_ - other[corr1.index2_].center_;
+	Vec2d dir1 = features1[corr0.index1_].center_ - features1[corr1.index1_].center_;
+	Vec2d dir2 = features2[corr0.index2_].center_ - features2[corr1.index2_].center_;
 
 	for (std::vector<Correlation>::iterator i = correlations.begin()+2; i != correlations.end(); )
 	{
 		Correlation & corr_i = *i;
 
-		Vec2d dir1_i = features[corr_i.index1_].center_ - features[corr0.index1_].center_;
-		Vec2d dir2_i = other[corr_i.index2_].center_ - other[corr0.index2_].center_;
+		Vec2d dir1_i = features1[corr_i.index1_].center_ - features1[corr0.index1_].center_;
+		Vec2d dir2_i = features2[corr_i.index2_].center_ - features2[corr0.index2_].center_;
 
 		double z1 = dir1_i ^ dir1;
 		double z2 = dir2_i ^ dir2;
@@ -486,8 +529,7 @@ public:
 	}
 };
 
-bool ImageAligner::findAlignment(const Features & features1, const Features & features2,
-																 const Vec2d & center1, const Vec2d & center2,
+bool ImageAligner::findTransform(size_t index1, size_t index2,
 																 const std::vector<Correlation> & correlations,
 																 Transformd & tr12)
 {
@@ -496,6 +538,9 @@ bool ImageAligner::findAlignment(const Features & features1, const Features & fe
 	Vec2d startTr, rotCenter;
 	double startAngle = 0;
 	double dxy = images_[0].width()/4.0;
+
+	const Features & features1 = features_arr_[index1];
+	const Features & features2 = features_arr_[index2];
 
 	if ( correlations.size() > 1 )
 	{
@@ -556,4 +601,24 @@ bool ImageAligner::findAlignment(const Features & features1, const Features & fe
 
 	tr12 = Transformd(args[2], Vec2d(args[0], args[1]), rotCenter);
 	return true;
+}
+
+void ImageAligner::writeResult(const TCHAR * outname) const
+{
+	ImageUC transformed(images_[1].width(), images_[0].height());
+
+	for (size_t i = 0; i < images_.size(); ++i)
+	{
+		Transformd tr = imgTransforms_[i].tr_;
+		int baseIndex = imgTransforms_[i].baseIndex_;
+		for ( ; baseIndex >= 0; )
+		{
+			tr = imgTransforms_[baseIndex].tr_ * tr;
+			baseIndex = imgTransforms_[baseIndex].baseIndex_;
+		}
+
+		transform<Color3uc, Color3u>(tr, images_[i], transformed);
+	}
+
+	PngImager::write(outname, transformed);
 }

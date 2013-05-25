@@ -215,11 +215,7 @@ bool ImageAligner::align()
       features[j].prepare();
   }
 
-	findCorrelations();
-
-	writeResult();
-
-	return true;
+	return findCorrelations();
 }
 //////////////////////////////////////////////////////////////////////////
 bool ImageAligner::findCorrelations()

@@ -93,7 +93,6 @@ private:
 	void findCorrelatedFeatures(size_t index1, size_t index2, std::vector<Correlation> & correlations);
 	bool findTransform(size_t index1, size_t index2, const std::vector<Correlation> & correlations, Transformd & tr12, double & diff);
 
-	void writeResult() const;
 
 public:
 
@@ -108,6 +107,9 @@ public:
 
 	/// do alignment with given params
 	bool align();
+
+  /// write result to result.png
+  void writeResult() const;
 
 private:
 

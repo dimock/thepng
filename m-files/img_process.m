@@ -101,7 +101,7 @@ function [complete_bw_mask, y_ellipse_start] = find_ellipse(bw_mask)
             end
         end
     end
-    % make symmetrical copy of left part ot the ellipse
+    % make symmetrical copy of left part of the ellipse
     xcenter_ellipse = (xleft_ellipse + xright_ellipse) / 2;
     complete_bw_mask = bw_mask;
     for y=y_ellipse_start:y_ellipse_stop

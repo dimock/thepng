@@ -1,6 +1,12 @@
 % solve test task
 
 function img_result = img_process(thrMin, thrMax)
+    if thrMax > 1
+        thrMax = 1;
+	end
+    if thrMin < 0
+        thrMin = 0;
+	end
     if thrMin >= thrMax
         thrMin = thrMax*0.99;
     end
@@ -14,10 +20,10 @@ function img_result = img_process(thrMin, thrMax)
     % find threshold for background color
     Thr = graythresh(img_dbl)*thrCoef;
     bw_mask = im2bw(img_dbl, Thr);
-    % HACK - add right part of ellipse to mask. it is incomplete yet
+    % HACK - add right part of ellipse to mask. it is still incomplete
     bw_mask = im2bw(img_dbl_comp, 0.05) .* bw_mask;
     % background mask
-    % search for vertical line what ellipse start s from
+    % search for vertical line what ellipse starts from
     % alse find complete figures mask (figures marked as black)
     [bw_mask,  y_ellipse_start] = find_ellipse(bw_mask);
     % find rectangle mask

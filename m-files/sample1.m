@@ -58,6 +58,13 @@ handles.output = hObject;
 % Update handles structure
 guidata(hObject, handles);
 
+thrMin = 0.5;
+thrMax = 0.95;
+set(handles.slider2, 'value', thrMin);
+set(handles.slider3, 'value', thrMax);
+img = img_process(thrMin, thrMax);
+figure(1), imshow(img)
+
 % UIWAIT makes sample1 wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 

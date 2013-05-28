@@ -6,7 +6,10 @@ function img_result = img_process(thrMin, thrMax)
 	end
     if thrMin < 0
         thrMin = 0;
-	end
+    end
+    if thrMax == 0
+        thrMax = 0.01;
+    end
     if thrMin >= thrMax
         thrMin = thrMax*0.99;
     end

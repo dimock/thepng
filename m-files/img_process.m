@@ -29,13 +29,15 @@ function do_process(varargin)
     img_denoise_bg = (ones(size(img_back)) * bg_color) .* bw_mask;
     % image of figures
     img_figures = img_dbl .* figures_mask;
+    img_figures = imadjust(img_figures,[0.5 0.95],[0 1]);
+    img_figures = img_figures .* figures_mask;
     % image of rectangle
     img_rect = img_dbl .* rect_mask;
     % collect them all together
     img_result = img_denoise_bg + img_figures + img_rect;
     figure(5), imshow(img_result);
-    figure(2), imshow(img_rect);
-    figure(3), imshow(img_figures);
+    %figure(2), imshow(img_rect);
+    %figure(3), imshow(img_figures);
     imwrite(img_result, out_name, 'png');
 end
 

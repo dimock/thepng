@@ -27,7 +27,7 @@ function img_result = img_process(thrMin, thrMax)
     bw_mask = im2bw(img_dbl_comp, 0.05) .* bw_mask;
     % background mask
     % search for vertical line what ellipse starts from
-    % alse find complete figures mask (figures marked as black)
+    % also find complete figures mask (figures marked as black)
     [bw_mask,  y_ellipse_start] = find_ellipse(bw_mask);
     % find rectangle mask
     rect_mask = find_rect(y_ellipse_start, bw_mask);
